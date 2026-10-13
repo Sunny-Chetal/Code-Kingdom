@@ -73,7 +73,7 @@ Planned organization:
 | Adhvikaa Radhamugundan | Developer |
 
 
-**Branch naming convention:** <type>/<issue-id>-<short-description>
+**Branch naming convention:** `<type>/<issue-id>-<short-description>`
 
 **Commit message convention:** [TBD]
 
@@ -135,15 +135,31 @@ Code Kingdom uses PostgreSQL 17 through Docker Compose.
 
 The database container is configured in `docker-compose.yml` and uses port `5432`.
 
-Ensure that `backend/.env` contains a valid `DATABASE_URL` matching the local PostgreSQL configuration.
+Create your local Docker environment file from the provided template:
 
-The connection string uses the following format:
+```powershell
+Copy-Item .env.example .env
+```
+
+This file contains the PostgreSQL username, password, and database name used by Docker Compose.
+
+Next, create your local backend environment file:
+
+```powershell
+Copy-Item backend/.env.example backend/.env
+```
+
+The backend uses `DATABASE_URL` to connect to PostgreSQL. The connection string follows this format:
 
 ```env
 DATABASE_URL=postgresql+psycopg://<username>:<password>@127.0.0.1:5432/<database>
 ```
 
-Replace the placeholders with the username, password, and database name specified in `docker-compose.yml`.
+Ensure the username, password, and database name in the backend connection string match the values configured in the root `.env` file.
+
+Both `.env` files are excluded from Git tracking, allowing developers to configure their own local database credentials without committing them to the repository.
+
+**Note:** PostgreSQL initializes its database user and password when the Docker database volume is first created. Changing the password in `.env` after initialization does not automatically change the existing database user's password. Existing installations must update the password within PostgreSQL as well.
 
 Do not commit private credentials or production environment files.
 

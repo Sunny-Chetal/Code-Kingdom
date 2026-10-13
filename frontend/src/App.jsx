@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Phaser from 'phaser'
+import Tutorial from './components/Tutorial'
 
 export default function App() {
   const container = useRef(null)
@@ -70,6 +71,7 @@ export default function App() {
           {backendStatus}
         </p>
         <div ref={container} className="mx-auto w-full max-w-3xl"/>
+        <Tutorial />
       </main>
   )
 }
