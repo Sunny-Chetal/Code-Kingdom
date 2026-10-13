@@ -1,0 +1,17 @@
+# Python virtual environment
+.venv/
+
+# Environment configuration
+.env
+.env.*
+!.env.example
+
+# Python generated files
+__pycache__/
+*.py[cod]
+
+# Local development logs
+.dev-logs/
+
+# IDE configuration
+.idea/
