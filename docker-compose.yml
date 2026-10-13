@@ -4,9 +4,9 @@ services:
     container_name: code-kingdom-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: codekingdom
-      POSTGRES_PASSWORD: localdevonly
-      POSTGRES_DB: codekingdom
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
