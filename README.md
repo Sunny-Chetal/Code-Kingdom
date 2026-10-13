@@ -73,7 +73,7 @@ Planned organization:
 | Adhvikaa Radhamugundan | Developer |
 
 
-**Branch naming convention:** <type>/<issue-id>-<short-description>
+**Branch naming convention:** `<type>/<issue-id>-<short-description>`
 
 **Commit message convention:** [TBD]
 
@@ -134,6 +134,14 @@ cd ..
 Code Kingdom uses PostgreSQL 17 through Docker Compose.
 
 The database container is configured in `docker-compose.yml` and uses port `5432`.
+
+Create your local backend environment file from the provided template:
+
+```powershell
+Copy-Item backend/.env.example backend/.env
+```
+
+The `.env` file is excluded from Git tracking and contains your local environment configuration.
 
 Ensure that `backend/.env` contains a valid `DATABASE_URL` matching the local PostgreSQL configuration.
 
