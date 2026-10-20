@@ -22,14 +22,16 @@ By completing coding challenges, students earn resources and currency that they 
 
 The following stack are proposed and may change as development progresses.
 
-| Component         | Technology                     |
-|-------------------|--------------------------------|
-| Language          | Python                         |
-| Frontend          | React, HTML, CSS, Tailwind CSS |
-| Backend           | FastAPI                        |
-| Database          | PostgreSQL, SQLAlchemy         |
-| Game Framework    | Phaser 3                       |
-| Tools             | Git, GitHub, Jira              |
+| Component              | Technology                     |
+|------------------------|--------------------------------|
+| Language               | Python                         |
+| Frontend               | React, HTML, CSS, Tailwind CSS |
+| Backend                | FastAPI                        |
+| Database               | PostgreSQL, SQLAlchemy         |
+| Game Framework         | Phaser 3                       |
+| Tools                  | Git, GitHub, Jira              |
+| Browser Python Runtime | Pyodide in a Web Browser       |
+
 
 
 ### Prerequisites
@@ -231,6 +233,10 @@ This stops the frontend, FastAPI services, and PostgreSQL container without dele
 - Vite supports hot module replacement for frontend changes.
 - Ports `5173`, `8000`, and `8001` must be available before starting the services.
 - Local environment configuration, Python virtual environments, and temporary development files should not be committed to GitHub.
+- Coding minigames use Pyodide to run Python code in the browser through a Web Worker.
+- The existing frontend `npm install` command installs the Pyodide dependency. Runtime files load from a CDN, which requires internet access.
+- The code editor supports tab indentation, printed output, Python errors, Run, Stop, and Reset. Execution stops automatically after 10 seconds.
+- Stop preserves the editor text. Reset asks for confirmation before discarding edited code.
 
 ### Troubleshooting
 

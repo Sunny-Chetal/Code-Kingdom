@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import Phaser from 'phaser'
 import Tutorial from './components/Tutorial'
+import Button from './components/Button'
+import CodingMinigame from './components/CodingMinigame'
 
 export default function App() {
   const container = useRef(null)
   const [backendStatus, setBackendStatus] = useState('Checking...')
+  // Controls whether the minigame panel is visible.
+  const [isMinigameOpen, setIsMinigameOpen] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -72,6 +76,17 @@ export default function App() {
         </p>
         <div ref={container} className="mx-auto w-full max-w-3xl"/>
         <Tutorial />
+
+        {isMinigameOpen ? (
+			<CodingMinigame onClose={() => setIsMinigameOpen(false)} />
+		) : (
+			<div className="mt-6 text-center">
+				<Button onClick={() => setIsMinigameOpen(true)}>
+					Open Coding Minigame
+				</Button>
+			</div>
+		)}
+
       </main>
   )
 }
