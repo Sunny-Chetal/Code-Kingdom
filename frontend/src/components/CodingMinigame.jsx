@@ -1,19 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Button from './Button'
 
-const STARTER_CODE = 'gold = 100\nprint(gold)'
+const STARTER_CODE = 'gold = 100\nprint(gold)' // Initial editor text and Reset target.
 
-// Displays the minigame panel; the parent controls when it opens and closes.
+// Displays the Python editor, controls, and output; the parent supplies onClose.
 export default function CodingMinigame({ onClose }) {
-	const workerRef = useRef(null)
-	const timeoutRef = useRef(null)
-	const [output, setOutput] = useState('')
-	const [isRunning, setIsRunning] = useState(false)
-	const [code, setCode] = useState(STARTER_CODE)
+	const workerRef = useRef(null) // Current Python worker, retained between renders.
+	const timeoutRef = useRef(null) // Timer used to stop long-running code.
+	const [output, setOutput] = useState('') // Printed output or execution messages.
+	const [isRunning, setIsRunning] = useState(false) // Controls execution-button availability.
+	const [code, setCode] = useState(STARTER_CODE) // Current editable Python source.
+	// Worker readiness controls the status message and whether Run is enabled.
 	const [runtimeStatus, setRuntimeStatus] = useState('Loading Python...')
 
-	// Start Python when the panel opens and stop the worker when it closes.
-	const startWorker = useCallback(() => {
+	const startWorker = useCallback(() => { // Creates and configures the Python worker.
+		// Vite resolves the worker file; module mode supports its Pyodide imports.
 		const worker = new Worker(
 			new URL('../workers/pythonWorker.js', import.meta.url),
 			{ type: 'module' }
@@ -21,7 +22,8 @@ export default function CodingMinigame({ onClose }) {
 
 		workerRef.current = worker
 
-		worker.onmessage = event => {
+		worker.onmessage = event => { // Handles status, results, and errors sent by the worker.
+			// Cancel the execution timer when the worker reports completion or an error.
 			if (
 				event.data.type === 'result' ||
 				event.data.type === 'run-error' ||
@@ -30,6 +32,7 @@ export default function CodingMinigame({ onClose }) {
 				clearTimeout(timeoutRef.current)
 				timeoutRef.current = null
 			}
+
 			if (event.data.type === 'ready') {
 				setRuntimeStatus('Python is ready')
 			} else if (event.data.type === 'error') {
@@ -38,6 +41,7 @@ export default function CodingMinigame({ onClose }) {
 				setOutput(event.data.output || '(No output)')
 				setIsRunning(false)
 			} else if (event.data.type === 'run-error') {
+				// Keep any printed output before the error and place the error message after it.
 				setOutput(
 					[event.data.output, event.data.message]
 						.filter(Boolean)
@@ -47,7 +51,7 @@ export default function CodingMinigame({ onClose }) {
 			}
 		}
 
-		worker.onerror = () => {
+		worker.onerror = () => { // Handles a failure of the worker itself.
 			clearTimeout(timeoutRef.current)
 			timeoutRef.current = null
 
@@ -58,10 +62,10 @@ export default function CodingMinigame({ onClose }) {
 		return worker
 	}, [])
 
-	// Clean up the current worker, including one created after stopping.
-	useEffect(() => {
+	useEffect(() => { // Starts Python when the panel mounts.
 		startWorker()
 
+		// Clear the timer and stop the active worker when the panel unmounts.
 		return () => {
 			clearTimeout(timeoutRef.current)
 			timeoutRef.current = null
@@ -71,14 +75,16 @@ export default function CodingMinigame({ onClose }) {
 		}
 	}, [startWorker])
 
-	// Send the editor's current code to the Python worker.
-	function runCode() {
+	function runCode() { // Sends the current editor text to the worker.
+		// Run requires a ready worker with no execution already in progress.
 		if (!workerRef.current || isRunning || runtimeStatus !== 'Python is ready') {
 			return
 		}
 
 		setOutput('')
 		setIsRunning(true)
+
+		// Reuse Stop after 10 seconds; restarting the worker leaves the editor text intact.
 		timeoutRef.current = setTimeout(() => {
 			stopCode('Execution timed out after 10 seconds.')
 		}, 10_000)
@@ -86,7 +92,7 @@ export default function CodingMinigame({ onClose }) {
 		workerRef.current.postMessage({ type: 'run', code })
 	}
 
-	// Stop execution and prepare a fresh Python runtime.
+	// Used by Stop and the timeout; replaces the worker while preserving editor text.
 	function stopCode(message = 'Execution stopped.') {
 		if (!workerRef.current) {
 			return
@@ -105,7 +111,7 @@ export default function CodingMinigame({ onClose }) {
 		startWorker()
 	}
 
-	function resetCode() {
+	function resetCode() { // Confirms edits, then restores the example and clears output.
 		if (
 			code !== STARTER_CODE &&
 			!window.confirm('Reset your code? Your changes will be lost.')
@@ -117,8 +123,8 @@ export default function CodingMinigame({ onClose }) {
 		setOutput('')
 	}
 
-	// Insert a tab instead of moving focus out of the editor.
-	function handleCodeKeyDown(event) {
+	function handleCodeKeyDown(event) { // Inserts a literal tab at the current selection.
+		// Leave Shift+Tab and modified keys available for normal keyboard navigation.
 		if (
 			event.key !== 'Tab' ||
 			event.shiftKey ||
@@ -132,18 +138,20 @@ export default function CodingMinigame({ onClose }) {
 		event.preventDefault()
 
 		const editor = event.currentTarget
-		const start = editor.selectionStart
-		const end = editor.selectionEnd
+		const start = editor.selectionStart // Start of the caret or selected text.
+		const end = editor.selectionEnd // End of the selected text.
 
 		setCode(
 			editor.value.slice(0, start) + '\t' + editor.value.slice(end)
 		)
 
+		// Restore the caret after React updates the controlled textarea.
 		requestAnimationFrame(() => {
 			editor.setSelectionRange(start + 1, start + 1)
 		})
 	}
 
+	// State drives the editor, status, output, and controls; Close calls the parent’s onClose.
 	return (
 		<section className="mx-auto mt-8 max-w-3xl rounded-lg bg-slate-800 p-6 text-white">
 			<h2 className="mb-4 text-2xl font-bold">
@@ -191,7 +199,7 @@ export default function CodingMinigame({ onClose }) {
 			<h3 className="mb-2 mt-4 font-semibold">Output</h3>
 			<pre
 				aria-live="polite"
-				className="mb-4 min-h-24 whitespace-pre-wrap break-words rounded bg-slate-950 p-4 font-mono"
+				className="mb-4 min-h-24 whitespace-pre-wrap wrap-break-word rounded bg-slate-950 p-4 font-mono"
 			>
 				{output}
 			</pre>
