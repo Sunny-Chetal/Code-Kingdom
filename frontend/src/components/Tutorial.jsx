@@ -1,23 +1,32 @@
 import { useState } from 'react'
 import Button from './Button'
 
-const lessons = [
-	{
-		title: 'Introduction to Variables',
-		explanation: 'Variables store information in a program. You can use a variable to track how much gold your kingdom has.',
-		code: 'gold = 100\nprint(gold)',
-	},
-	{
-		title: 'Updating Variables',
-		explanation: 'You can update a variable when its value changes. Here, your kingdom earns 25 gold.',
-		code: 'gold = 100\ngold = gold + 25\nprint(gold)',
-	},
-]
+// Tutorial identity and the ordered steps used by the navigation.
+const tutorial = {
+	id: 'variables-introduction',
+	title: 'Introduction to Variables',
+	steps: [
+		{
+			title: 'Introduction to Variables',
+			explanation: 'Variables store information in a program. You can use a variable to track how much gold your kingdom has.',
+			code: 'gold = 100\nprint(gold)',
+		},
+		{
+			title: 'Updating Variables',
+			explanation: 'You can update a variable when its value changes. Here, your kingdom earns 25 gold.',
+			code: 'gold = 100\ngold = gold + 25\nprint(gold)',
+		},
+	],
+}
 
-export default function Tutorial() {
-	const [currentStep, setCurrentStep] = useState(0)
-	const lesson = lessons[currentStep]
+// Displays tutorial steps; the parent supplies completion IDs and the completion callback.
+export default function Tutorial({ completedTutorialIds, onComplete }) {
+	const [currentStep, setCurrentStep] = useState(0) // Index of the displayed step.
+	const lesson = tutorial.steps[currentStep] // Content for the selected step.
+	const isCompleted = completedTutorialIds.includes(tutorial.id) // Checks the parent’s completion list.
+	const isLastStep = currentStep === tutorial.steps.length - 1 // Allows completion on the final step.
 
+	// Navigation changes currentStep; the completion button calls onComplete with this tutorial’s ID.
 	return (
 		<section className="mx-auto mt-8 max-w-3xl rounded-lg bg-slate-800 p-6 text-white">
 			<h2 className="mb-4 text-2xl font-bold">Programming Tutorial</h2>
@@ -37,16 +46,30 @@ export default function Tutorial() {
 				</Button>
 
 				<span className="text-sm text-slate-300">
-					Step {currentStep + 1} of {lessons.length}
+					Step {currentStep + 1} of {tutorial.steps.length}
 				</span>
 
 				<Button
 					onClick={() => setCurrentStep(step => step + 1)}
-					disabled={currentStep === lessons.length - 1}
+					disabled={currentStep === tutorial.steps.length - 1}
 				>
 					Next
 				</Button>
 			</div>
+
+			{isCompleted ? (
+				<p className="mt-4 text-green-400">
+					Tutorial completed
+				</p>
+			) : (
+				isLastStep && (
+					<div className="mt-4">
+						<Button onClick={() => onComplete(tutorial.id)}>
+							Complete Tutorial
+						</Button>
+					</div>
+				)
+			)}
 		</section>
 	)
 }

@@ -4,11 +4,15 @@ import Tutorial from './components/Tutorial'
 import Button from './components/Button'
 import CodingMinigame from './components/CodingMinigame'
 
+// Everything with comments was added by Jordan and will be moved to separate files soon
+
 export default function App() {
   const container = useRef(null)
   const [backendStatus, setBackendStatus] = useState('Checking...')
-  // Controls whether the minigame panel is visible.
+  // Tracks whether the minigame panel is visible.
   const [isMinigameOpen, setIsMinigameOpen] = useState(false)
+  // State variable to track completed tutorials
+  const [completedTutorialIds, setCompletedTutorialIds] = useState([])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -66,6 +70,16 @@ export default function App() {
     return () => game.destroy(true)
   }, [])
 
+  // Function for recording the completion
+  function completeTutorial(tutorialId) {
+    setCompletedTutorialIds(previousIds => {
+      if (previousIds.includes(tutorialId)) {
+				return previousIds
+      }
+      return [...previousIds, tutorialId]
+    })
+  }
+
   return (
       <main className="min-h-screen bg-slate-950 p-8 text-white">
         <h1 className="mb-6 text-center text-3xl font-bold">
@@ -75,9 +89,12 @@ export default function App() {
           {backendStatus}
         </p>
         <div ref={container} className="mx-auto w-full max-w-3xl"/>
-        <Tutorial />
+        <Tutorial 		// Displays tutorial steps using completedTutorialIds and reports completion through completeTutorial
+			completedTutorialIds={completedTutorialIds}
+			onComplete={completeTutorial}
+		/>
 
-        {isMinigameOpen ? (
+        {isMinigameOpen ? ( // Uses isMinigameOpen to show the panel or its opening button; onClose hides the panel.
 			<CodingMinigame onClose={() => setIsMinigameOpen(false)} />
 		) : (
 			<div className="mt-6 text-center">
@@ -86,7 +103,6 @@ export default function App() {
 				</Button>
 			</div>
 		)}
-
       </main>
   )
 }
