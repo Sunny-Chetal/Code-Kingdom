@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Phaser from 'phaser'
-import Tutorial from './components/Tutorial'
+import Tutorial from './components/Tutorial' // Imports the logic for tutorials
+import tutorialData from './data/tutorial' // Imports the data from data/tutorial
 import Button from './components/Button'
 import CodingMinigame from './components/CodingMinigame'
 
@@ -13,6 +14,8 @@ export default function App() {
   const [isMinigameOpen, setIsMinigameOpen] = useState(false)
   // State variable to track completed tutorials
   const [completedTutorialIds, setCompletedTutorialIds] = useState([])
+  // Checks completion of the tutorial currently supplied by tutorialData.
+  const isMinigameUnlocked = completedTutorialIds.includes(tutorialData.id)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -81,28 +84,41 @@ export default function App() {
   }
 
   return (
-      <main className="min-h-screen bg-slate-950 p-8 text-white">
-        <h1 className="mb-6 text-center text-3xl font-bold">
-          Code Kingdom
-        </h1>
-        <p className="mb-4 text-center">
-          {backendStatus}
-        </p>
-        <div ref={container} className="mx-auto w-full max-w-3xl"/>
-        <Tutorial 		// Displays tutorial steps using completedTutorialIds and reports completion through completeTutorial
-			completedTutorialIds={completedTutorialIds}
-			onComplete={completeTutorial}
-		/>
+		<main className="min-h-screen bg-slate-950 p-8 text-white">
+			<h1 className="mb-6 text-center text-3xl font-bold">
+				Code Kingdom
+			</h1>
 
-        {isMinigameOpen ? ( // Uses isMinigameOpen to show the panel or its opening button; onClose hides the panel.
-			<CodingMinigame onClose={() => setIsMinigameOpen(false)} />
-		) : (
-			<div className="mt-6 text-center">
-				<Button onClick={() => setIsMinigameOpen(true)}>
-					Open Coding Minigame
-				</Button>
-			</div>
-		)}
-      </main>
-  )
+			<p className="mb-4 text-center">
+				{backendStatus}
+			</p>
+
+			<div ref={container} className="mx-auto w-full max-w-3xl" />
+
+			<Tutorial
+				tutorial={tutorialData}
+				completedTutorialIds={completedTutorialIds}
+				onComplete={completeTutorial}
+			/>
+
+			{isMinigameOpen ? (
+				<CodingMinigame onClose={() => setIsMinigameOpen(false)} />
+			) : (
+				<div className="mt-6 text-center">
+					<Button
+						onClick={() => setIsMinigameOpen(true)}
+						disabled={!isMinigameUnlocked}
+					>
+						Open Coding Minigame
+					</Button>
+
+					{!isMinigameUnlocked && (
+						<p className="mt-2 text-sm text-slate-300">
+							Complete {tutorialData.title} to unlock this minigame.
+						</p>
+					)}
+				</div>
+			)}
+		</main>
+	)
 }

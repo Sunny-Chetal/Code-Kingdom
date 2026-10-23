@@ -1,26 +1,8 @@
 import { useState } from 'react'
 import Button from './Button'
 
-// Tutorial identity and the ordered steps used by the navigation.
-const tutorial = {
-	id: 'variables-introduction',
-	title: 'Introduction to Variables',
-	steps: [
-		{
-			title: 'Introduction to Variables',
-			explanation: 'Variables store information in a program. You can use a variable to track how much gold your kingdom has.',
-			code: 'gold = 100\nprint(gold)',
-		},
-		{
-			title: 'Updating Variables',
-			explanation: 'You can update a variable when its value changes. Here, your kingdom earns 25 gold.',
-			code: 'gold = 100\ngold = gold + 25\nprint(gold)',
-		},
-	],
-}
-
 // Displays tutorial steps; the parent supplies completion IDs and the completion callback.
-export default function Tutorial({ completedTutorialIds, onComplete }) {
+export default function Tutorial({ tutorial, completedTutorialIds, onComplete }) {
 	const [currentStep, setCurrentStep] = useState(0) // Index of the displayed step.
 	const lesson = tutorial.steps[currentStep] // Content for the selected step.
 	const isCompleted = completedTutorialIds.includes(tutorial.id) // Checks the parent’s completion list.
