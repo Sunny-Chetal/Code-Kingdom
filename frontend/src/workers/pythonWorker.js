@@ -1,4 +1,4 @@
-import { loadPyodide, version } from 'pyodide'
+import {loadPyodide, version} from 'pyodide'
 
 // Load the Python runtime once when the worker starts.
 const pythonReady = loadPyodide({
@@ -7,10 +7,10 @@ const pythonReady = loadPyodide({
 
 pythonReady
 	.then(() => {
-		self.postMessage({ type: 'ready' })
+		self.postMessage({type: 'ready'})
 	})
 	.catch(error => {
-		self.postMessage({ type: 'error', message: error.message })
+		self.postMessage({type: 'error', message: error.message})
 	})
 
 // Run code received from the editor and collect its printed output.
@@ -25,7 +25,7 @@ self.onmessage = async event => {
 		const python = await pythonReady
 
 		// Give each run its own variables.
-		const globals = python.toPy({ __name__: '__main__' })
+		const globals = python.toPy({__name__: '__main__'})
 		const checks = event.data.checks // Requirements supplied by the current challenge.
 		python.setStdout({
 			batched: text => output.push(text), // Receives printed output one line at a time.
@@ -34,7 +34,7 @@ self.onmessage = async event => {
 		let isCorrect = null // Runs without challenge checks remain ungraded.
 
 		try {
-			await python.runPythonAsync(event.data.code, { globals })
+			await python.runPythonAsync(event.data.code, {globals})
 
 			if (checks) {
 				// Inspect the code separately from the student's execution variables.
@@ -85,7 +85,7 @@ def check_structure(source, required_names): # Checks simple assignments and dir
     return all(name in printed for name in required_names) # Every required name must qualify.
 
 check_structure(source, required_names)
-`, { globals: inspectionGlobals })
+`, {globals: inspectionGlobals})
 				} finally {
 					inspectionGlobals.destroy() // Releases the temporary Python inspection namespace.
 				}

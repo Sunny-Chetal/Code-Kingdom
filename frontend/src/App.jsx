@@ -1,89 +1,106 @@
-import { useEffect, useRef, useState } from 'react'
+import {useEffect, useRef, useState} from 'react'
 import Phaser from 'phaser'
 import Tutorial from './components/Tutorial' // Imports the logic for tutorials
-import tutorialData from './data/tutorial' // Imports the data from data/tutorial
-import Button from './components/Button'
+import tutorials from './data/tutorial' // Tutorials in progression order.import Button from './components/Button'
 import CodingMinigame from './components/CodingMinigame'
+import Button from "./components/Button.jsx";
 
 // Everything with comments was added by Jordan and will be moved to separate files soon
 
 export default function App() {
-  const container = useRef(null)
-  const [backendStatus, setBackendStatus] = useState('Checking...')
-  // Tracks whether the minigame panel is visible.
-  const [isMinigameOpen, setIsMinigameOpen] = useState(false)
-  // State variable to track completed tutorials
-  const [completedTutorialIds, setCompletedTutorialIds] = useState([])
-  // Checks completion of the tutorial currently supplied by tutorialData.
-  const isMinigameUnlocked = completedTutorialIds.includes(tutorialData.id)
+	const container = useRef(null)
+	const [backendStatus, setBackendStatus] = useState('Checking...')
+	// Tracks whether the minigame panel is visible.
+	const [isMinigameOpen, setIsMinigameOpen] = useState(false)
+	// State variable to track completed tutorials
+	const [completedTutorialIds, setCompletedTutorialIds] = useState([])
+	// Tracks challenges passed during this page session.
+	const [passedChallengeIds, setPassedChallengeIds] = useState([])
+	const tutorialData = tutorials.find(tutorial => !passedChallengeIds.includes(tutorial.challenge.id))
+	// A missing tutorial means every available challenge has been passed.
+	const allTutorialsCompleted = tutorialData === undefined
+	const isMinigameUnlocked = !allTutorialsCompleted && completedTutorialIds.includes(tutorialData.id)
 
-  useEffect(() => {
-    const controller = new AbortController()
+	useEffect(() => {
+		const controller = new AbortController()
 
-    async function checkBackend() {
-      try {
-        const response = await fetch(
-          'http://127.0.0.1:8000/api/health',
-          { signal: controller.signal }
-        )
+		async function checkBackend() {
+			try {
+				const response = await fetch(
+					'http://127.0.0.1:8000/api/health',
+					{signal: controller.signal}
+				)
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`)
-        }
+				if (!response.ok) {
+					throw new Error(`HTTP ${response.status}`)
+				}
 
-        const data = await response.json()
+				const data = await response.json()
 
-        setBackendStatus(
-          `Backend: ${data.status} | Database: ${data.database}`
-        )
-      } catch (error) {
-        if (error.name !== 'AbortError') {
-          setBackendStatus('Backend connection failed')
-          console.error(error)
-        }
-      }
-    }
+				setBackendStatus(
+					`Backend: ${data.status} | Database: ${data.database}`
+				)
+			} catch (error) {
+				if (error.name !== 'AbortError') {
+					setBackendStatus('Backend connection failed')
+					console.error(error)
+				}
+			}
+		}
 
-    checkBackend()
+		checkBackend()
 
-    return () => controller.abort()
-  }, [])
+		return () => controller.abort()
+	}, [])
 
-  useEffect(() => {
-    const game = new Phaser.Game({
-      type: Phaser.AUTO,
-      parent: container.current,
-      width: 800,
-      height: 450,
-      backgroundColor: '#1e293b',
-      scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH
-      },
-      scene: {
-        create() {
-          this.add.text(400, 225, 'Code Kingdom', {
-            fontSize: '48px',
-            color: '#ffffff'
-          }).setOrigin(0.5)
-        }
-      }
-    })
+	useEffect(() => {
+		const game = new Phaser.Game({
+			type: Phaser.AUTO,
+			parent: container.current,
+			width: 800,
+			height: 450,
+			backgroundColor: '#1e293b',
+			scale: {
+				mode: Phaser.Scale.FIT,
+				autoCenter: Phaser.Scale.CENTER_BOTH
+			},
+			scene: {
+				create() {
+					this.add.text(400, 225, 'Code Kingdom', {
+						fontSize: '48px',
+						color: '#ffffff'
+					}).setOrigin(0.5)
+				}
+			}
+		})
 
-    return () => game.destroy(true)
-  }, [])
+		return () => game.destroy(true)
+	}, [])
 
-  // Function for recording the completion
-  function completeTutorial(tutorialId) {
-    setCompletedTutorialIds(previousIds => {
-      if (previousIds.includes(tutorialId)) {
+	// Function for recording the completion
+	function completeTutorial(tutorialId) {
+		setCompletedTutorialIds(previousIds => {
+			if (previousIds.includes(tutorialId)) {
 				return previousIds
-      }
-      return [...previousIds, tutorialId]
-    })
-  }
+			}
+			return [...previousIds, tutorialId]
+		})
+	}
 
-  async function submitAnswer(code) { // Sends the answer with the current challenge's ID.
+	function completeChallenge(challengeId) {
+		// Record each passed challenge only once.
+		setPassedChallengeIds(previousIds => {
+			if (previousIds.includes(challengeId)) {
+				return previousIds
+			}
+
+			return [...previousIds, challengeId]
+		})
+
+		setIsMinigameOpen(false)
+	}
+
+	async function submitAnswer(code) { // Sends the answer with the current challenge's ID.
 		const response = await fetch(
 			'http://127.0.0.1:8000/api/challenge-submissions',
 			{
@@ -105,7 +122,7 @@ export default function App() {
 		return response.json()
 	}
 
-  return (
+	return (
 		<main className="min-h-screen bg-slate-950 p-8 text-white">
 			<h1 className="mb-6 text-center text-3xl font-bold">
 				Code Kingdom
@@ -115,35 +132,45 @@ export default function App() {
 				{backendStatus}
 			</p>
 
-			<div ref={container} className="mx-auto w-full max-w-3xl" />
+			<div ref={container} className="mx-auto w-full max-w-3xl"/>
 
-			<Tutorial
-				tutorial={tutorialData}
-				completedTutorialIds={completedTutorialIds}
-				onComplete={completeTutorial}
-			/>
-
-			{isMinigameOpen ? (
-                <CodingMinigame
-					challenge={tutorialData.challenge}
-					onSubmit={submitAnswer}
-					onClose={() => setIsMinigameOpen(false)}
-				/>
+			{allTutorialsCompleted ? (
+				<p role="status" className="mt-8 text-center text-green-400">
+					You have completed all available tutorials and challenges!
+				</p>
 			) : (
-				<div className="mt-6 text-center">
-					<Button
-						onClick={() => setIsMinigameOpen(true)}
-						disabled={!isMinigameUnlocked}
-					>
-						Open Coding Minigame
-					</Button>
+				<>
+					<Tutorial
+						key={tutorialData.id}
+						tutorial={tutorialData}
+						completedTutorialIds={completedTutorialIds}
+						onComplete={completeTutorial}
+					/>
 
-					{!isMinigameUnlocked && (
-						<p className="mt-2 text-sm text-slate-300">
-							Complete {tutorialData.title} to unlock this minigame.
-						</p>
+					{isMinigameOpen ? (
+						<CodingMinigame
+							challenge={tutorialData.challenge}
+							onSubmit={submitAnswer}
+							onPassed={completeChallenge}
+							onClose={() => setIsMinigameOpen(false)}
+						/>
+					) : (
+						<div className="mt-6 text-center">
+							<Button
+								onClick={() => setIsMinigameOpen(true)}
+								disabled={!isMinigameUnlocked}
+							>
+								Open Coding Minigame
+							</Button>
+
+							{!isMinigameUnlocked && (
+								<p className="mt-2 text-sm text-slate-300">
+									Complete {tutorialData.title} to unlock this minigame.
+								</p>
+							)}
+						</div>
 					)}
-				</div>
+				</>
 			)}
 		</main>
 	)

@@ -21,7 +21,7 @@ def root():
     return {"message": "Code Kingdom API is running"}
 
 @app.post("/challenge-submissions", status_code=201)
-def submit_answer(submission: ChallengeSubmission): # Validates and stores a submitted answer.
+def submit_answer(submission: ChallengeSubmission):  # Validates and stores a submitted answer.
     if not submission.challenge_id.strip():
         raise HTTPException(status_code=422, detail="A challenge ID is required")
 
@@ -36,8 +36,8 @@ def submit_answer(submission: ChallengeSubmission): # Validates and stores a sub
                 code=submission.code,
             )
 
-            session.add(record) # Adds the submission to the database transaction.
-            session.flush() # Inserts the record so its generated ID becomes available.
+            session.add(record)  # Adds the submission to the database transaction.
+            session.flush()  # Inserts the record so its generated ID becomes available.
             submission_id = record.id
 
         return {

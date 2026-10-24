@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 import Button from './Button'
 
 // Displays the Python editor, controls, and output; the parent supplies onClose.
-export default function CodingMinigame({ onClose, onSubmit, challenge }) {
+export default function CodingMinigame({ onClose, onSubmit, onPassed, challenge }) {
 	const workerRef = useRef(null) // Current Python worker, retained between renders.
 	const timeoutRef = useRef(null) // Timer used to stop long-running code.
 	const pendingGradeRef = useRef(null) // Holds the waiting submission's grading callbacks.
@@ -17,7 +17,7 @@ export default function CodingMinigame({ onClose, onSubmit, challenge }) {
 		// Vite resolves the worker file; module mode supports its Pyodide imports.
 		const worker = new Worker(
 			new URL('../workers/pythonWorker.js', import.meta.url),
-			{ type: 'module' }
+			{type: 'module'}
 		)
 
 		workerRef.current = worker
@@ -146,7 +146,7 @@ export default function CodingMinigame({ onClose, onSubmit, challenge }) {
 		}
 
 		return new Promise((resolve, reject) => {
-			pendingGradeRef.current = { resolve, reject }
+			pendingGradeRef.current = {resolve, reject}
 
 			try {
 				runCode()
@@ -236,6 +236,13 @@ export default function CodingMinigame({ onClose, onSubmit, challenge }) {
 			}
 
 			await onSubmit(code)
+
+			// Advance only after a correct answer has been successfully stored.
+			if (isCorrect && onPassed) {
+				onPassed(challenge.id)
+				return
+			}
+
 
 			setSubmissionMessage(
 				isCorrect

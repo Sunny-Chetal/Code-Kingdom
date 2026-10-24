@@ -1,6 +1,6 @@
 // Shared styling; props supply the label, click handler, disabled state, and button type.
 // The default type prevents accidental form submission.
-export default function Button({ children, onClick, disabled = false, type = 'button' }) {
+export default function Button({children, onClick, disabled = false, type = 'button'}) {
 	return (
 		<button
 			type={type}

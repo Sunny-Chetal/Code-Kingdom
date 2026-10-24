@@ -12,7 +12,8 @@ CORE_SERVICE_URL = os.getenv("CORE_SERVICE_URL", "http://127.0.0.1:8001")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:4173", "http://127.0.0.1:4173",],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:4173",
+                   "http://127.0.0.1:4173", ],
     allow_methods=["*"],
     allow_headers=["*"]
 )
@@ -32,7 +33,7 @@ async def core_health():
         raise HTTPException(status_code=502, detail="Core service unavailable")
 
 @app.post("/api/challenge-submissions", status_code=201)
-async def submit_answer(submission: ChallengeSubmission): # Forwards answers to the core service.
+async def submit_answer(submission: ChallengeSubmission):  # Forwards answers to the core service.
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.post(
