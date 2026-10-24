@@ -7,6 +7,13 @@ export default {
 		title: 'Variables Challenge',
 		description: 'Create a variable named gold with a value of 100, then print it.',
 		starterCode: '',
+		checks: {
+			variables: {
+				gold: 100,
+			},
+			printedVariables: ['gold'],
+			output: '100',
+		},
 	},
 	steps: [
 		{
