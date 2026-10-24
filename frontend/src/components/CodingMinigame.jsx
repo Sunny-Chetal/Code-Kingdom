@@ -5,6 +5,7 @@ import Button from './Button'
 export default function CodingMinigame({ onClose, onSubmit, challenge }) {
 	const workerRef = useRef(null) // Current Python worker, retained between renders.
 	const timeoutRef = useRef(null) // Timer used to stop long-running code.
+	const pendingGradeRef = useRef(null) // Holds the waiting submission's grading callbacks.
 	const [output, setOutput] = useState('') // Printed output or execution messages.
 	const [isRunning, setIsRunning] = useState(false) // Controls execution-button availability.
 	const [code, setCode] = useState(challenge.starterCode) // Initial editor text comes from the challenge.
@@ -35,11 +36,38 @@ export default function CodingMinigame({ onClose, onSubmit, challenge }) {
 			if (event.data.type === 'ready') {
 				setRuntimeStatus('Python is ready')
 			} else if (event.data.type === 'error') {
+				if (pendingGradeRef.current) {
+					pendingGradeRef.current.reject(new Error(event.data.message))
+					pendingGradeRef.current = null
+				}
+
+				setIsRunning(false)
 				setRuntimeStatus(`Python failed to load: ${event.data.message}`)
 			} else if (event.data.type === 'result') {
 				setOutput(event.data.output || '(No output)')
+
+				// Return the grading result to a waiting submission.
+				if (pendingGradeRef.current) {
+					pendingGradeRef.current.resolve(event.data.isCorrect)
+					pendingGradeRef.current = null
+				}
+
+				if (event.data.isCorrect !== null) {
+					setSubmissionMessage(
+						event.data.isCorrect
+							? 'Your answer is correct.'
+							: 'Your answer is not correct yet.'
+					)
+				}
+
 				setIsRunning(false)
 			} else if (event.data.type === 'run-error') {
+				// Tell a waiting submission that Python execution failed.
+				if (pendingGradeRef.current) {
+					pendingGradeRef.current.reject(new Error(event.data.message))
+					pendingGradeRef.current = null
+				}
+
 				// Keep any printed output before the error and place the error message after it.
 				setOutput(
 					[event.data.output, event.data.message]
@@ -53,6 +81,11 @@ export default function CodingMinigame({ onClose, onSubmit, challenge }) {
 		worker.onerror = () => { // Handles a failure of the worker itself.
 			clearTimeout(timeoutRef.current)
 			timeoutRef.current = null
+
+			if (pendingGradeRef.current) {
+				pendingGradeRef.current.reject(new Error('Python worker failed.'))
+				pendingGradeRef.current = null
+			}
 
 			setIsRunning(false)
 			setRuntimeStatus('Python failed to load')
@@ -69,6 +102,11 @@ export default function CodingMinigame({ onClose, onSubmit, challenge }) {
 			clearTimeout(timeoutRef.current)
 			timeoutRef.current = null
 
+			if (pendingGradeRef.current) {
+				pendingGradeRef.current.reject(new Error('The editor was closed.'))
+				pendingGradeRef.current = null
+			}
+
 			workerRef.current?.terminate()
 			workerRef.current = null
 		}
@@ -81,6 +119,7 @@ export default function CodingMinigame({ onClose, onSubmit, challenge }) {
 		}
 
 		setOutput('')
+		setSubmissionMessage('')
 		setIsRunning(true)
 
 		// Reuse Stop after 10 seconds; restarting the worker leaves the editor text intact.
@@ -88,11 +127,44 @@ export default function CodingMinigame({ onClose, onSubmit, challenge }) {
 			stopCode('Execution timed out after 10 seconds.')
 		}, 10_000)
 
-		workerRef.current.postMessage({ type: 'run', code })
+		// Send the code and the current challenge's grading requirements.
+		workerRef.current.postMessage({
+			type: 'run',
+			code,
+			checks: challenge.checks,
+		})
+	}
+
+	function gradeAnswer() { // Runs the current answer and waits for its grade.
+		if (
+			!workerRef.current ||
+			isRunning ||
+			pendingGradeRef.current ||
+			runtimeStatus !== 'Python is ready'
+		) {
+			return Promise.reject(new Error('Python is not ready to grade.'))
+		}
+
+		return new Promise((resolve, reject) => {
+			pendingGradeRef.current = { resolve, reject }
+
+			try {
+				runCode()
+			} catch (error) {
+				pendingGradeRef.current = null
+				reject(error)
+			}
+		})
 	}
 
 	// Used by Stop and the timeout; replaces the worker while preserving editor text.
 	function stopCode(message = 'Execution stopped.') {
+		// End a waiting submission when execution is stopped or times out.
+		if (pendingGradeRef.current) {
+			pendingGradeRef.current.reject(new Error(message))
+			pendingGradeRef.current = null
+		}
+
 		if (!workerRef.current) {
 			return
 		}
@@ -123,12 +195,12 @@ export default function CodingMinigame({ onClose, onSubmit, challenge }) {
 		setSubmissionMessage('')
 	}
 
-	async function submitAnswer() { // Sends the current code through the parent's submission handler.
-		if (isSubmitting) {
+	async function submitAnswer() { // Grades the current answer, then stores it.
+		if (isSubmitting || isRunning) {
 			return
 		}
 
-		if (!code.trim()) { // Checks to see if the code contains anything except whitespace
+		if (!code.trim()) {
 			setSubmissionMessage('Enter some code before submitting.')
 			return
 		}
@@ -138,17 +210,48 @@ export default function CodingMinigame({ onClose, onSubmit, challenge }) {
 			return
 		}
 
+		if (!challenge.checks) {
+			setSubmissionMessage('Grading is unavailable for this challenge.')
+			return
+		}
+
 		setIsSubmitting(true)
 		setSubmissionMessage('')
 
 		try {
-			await onSubmit(code) // Waits for the submission function to finish
-			setSubmissionMessage('Answer submitted.')
+			let isCorrect
+
+			try {
+				isCorrect = await gradeAnswer()
+			} catch {
+				setSubmissionMessage(
+					'Could not grade your answer. Check the output and try again.'
+				)
+				return
+			}
+
+			if (typeof isCorrect !== 'boolean') {
+				setSubmissionMessage('No grading result was returned. Please try again.')
+				return
+			}
+
+			await onSubmit(code)
+
+			setSubmissionMessage(
+				isCorrect
+					? 'Answer submitted. Your answer is correct.'
+					: 'Answer submitted. Your answer is not correct yet.'
+			)
 		} catch {
 			setSubmissionMessage('Could not submit your answer. Please try again.')
 		} finally {
 			setIsSubmitting(false)
 		}
+	}
+
+	function updateCode(nextCode) { // Clears feedback when the answer changes.
+		setCode(nextCode)
+		setSubmissionMessage('')
 	}
 
 	function handleCodeKeyDown(event) { // Inserts a literal tab at the current selection.
@@ -169,7 +272,7 @@ export default function CodingMinigame({ onClose, onSubmit, challenge }) {
 		const start = editor.selectionStart // Start of the caret or selected text.
 		const end = editor.selectionEnd // End of the selected text.
 
-		setCode(
+		updateCode(
 			editor.value.slice(0, start) + '\t' + editor.value.slice(end)
 		)
 
@@ -202,7 +305,8 @@ export default function CodingMinigame({ onClose, onSubmit, challenge }) {
 				style={{tabSize: 4}}
 				id="minigame-code"
 				value={code}
-				onChange={event => setCode(event.target.value)}
+				disabled={isRunning || isSubmitting}
+				onChange={event => updateCode(event.target.value)}
 				spellCheck={false}
 				className="mb-4 min-h-48 w-full rounded bg-slate-950 p-4 font-mono text-green-400"
 			/>
@@ -210,7 +314,7 @@ export default function CodingMinigame({ onClose, onSubmit, challenge }) {
 			<div className="flex gap-2">
 				<Button
 					onClick={runCode} // Run button
-					disabled={isRunning || runtimeStatus !== 'Python is ready'}
+					disabled={isRunning || isSubmitting || runtimeStatus !== 'Python is ready'}
 				>
 					{isRunning ? 'Running...' : 'Run'}
 				</Button>
@@ -219,13 +323,18 @@ export default function CodingMinigame({ onClose, onSubmit, challenge }) {
 					Stop
 				</Button>
 
-				<Button onClick={resetCode} disabled={isRunning}>
+				<Button onClick={resetCode} disabled={isRunning || isSubmitting}>
 					Reset
 				</Button>
 
 				<Button // Submit button
 					onClick={submitAnswer}
-					disabled={isSubmitting || isRunning || !onSubmit}
+					disabled={
+						isSubmitting ||
+						isRunning ||
+						!onSubmit ||
+						runtimeStatus !== 'Python is ready'
+					}
 				>
 					{isSubmitting ? 'Submitting...' : 'Submit'}
 				</Button>
