@@ -2,6 +2,12 @@
 export default {
 	id: 'variables-introduction',
 	title: 'Introduction to Variables',
+	challenge: {
+		id: 'variables-challenge',
+		title: 'Variables Challenge',
+		description: 'Create a variable named gold with a value of 100, then print it.',
+		starterCode: '',
+	},
 	steps: [
 		{
 			title: 'Introduction to Variables',

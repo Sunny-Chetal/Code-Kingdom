@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Button from './Button'
 
-const STARTER_CODE = 'gold = 100\nprint(gold)' // Initial editor text and Reset target.
-
 // Displays the Python editor, controls, and output; the parent supplies onClose.
-export default function CodingMinigame({ onClose }) {
+export default function CodingMinigame({ onClose, onSubmit, challenge }) {
 	const workerRef = useRef(null) // Current Python worker, retained between renders.
 	const timeoutRef = useRef(null) // Timer used to stop long-running code.
 	const [output, setOutput] = useState('') // Printed output or execution messages.
 	const [isRunning, setIsRunning] = useState(false) // Controls execution-button availability.
-	const [code, setCode] = useState(STARTER_CODE) // Current editable Python source.
-	// Worker readiness controls the status message and whether Run is enabled.
-	const [runtimeStatus, setRuntimeStatus] = useState('Loading Python...')
+	const [code, setCode] = useState(challenge.starterCode) // Initial editor text comes from the challenge.
+	const [runtimeStatus, setRuntimeStatus] = useState('Loading Python...') // Tracks the python worker
+	const [isSubmitting, setIsSubmitting] = useState(false) // Tracks an answer submission in progress.
+	const [submissionMessage, setSubmissionMessage] = useState('') // Displays submission feedback.
 
 	const startWorker = useCallback(() => { // Creates and configures the Python worker.
 		// Vite resolves the worker file; module mode supports its Pyodide imports.
@@ -111,16 +110,45 @@ export default function CodingMinigame({ onClose }) {
 		startWorker()
 	}
 
-	function resetCode() { // Confirms edits, then restores the example and clears output.
+	function resetCode() { // Confirms edits, then restores the challenge's starter code.
 		if (
-			code !== STARTER_CODE &&
+			code !== challenge.starterCode &&
 			!window.confirm('Reset your code? Your changes will be lost.')
 		) {
 			return
 		}
 
-		setCode(STARTER_CODE)
+		setCode(challenge.starterCode)
 		setOutput('')
+		setSubmissionMessage('')
+	}
+
+	async function submitAnswer() { // Sends the current code through the parent's submission handler.
+		if (isSubmitting) {
+			return
+		}
+
+		if (!code.trim()) { // Checks to see if the code contains anything except whitespace
+			setSubmissionMessage('Enter some code before submitting.')
+			return
+		}
+
+		if (!onSubmit) {
+			setSubmissionMessage('Answer submission is unavailable.')
+			return
+		}
+
+		setIsSubmitting(true)
+		setSubmissionMessage('')
+
+		try {
+			await onSubmit(code) // Waits for the submission function to finish
+			setSubmissionMessage('Answer submitted.')
+		} catch {
+			setSubmissionMessage('Could not submit your answer. Please try again.')
+		} finally {
+			setIsSubmitting(false)
+		}
 	}
 
 	function handleCodeKeyDown(event) { // Inserts a literal tab at the current selection.
@@ -155,11 +183,11 @@ export default function CodingMinigame({ onClose }) {
 	return (
 		<section className="mx-auto mt-8 max-w-3xl rounded-lg bg-slate-800 p-6 text-white">
 			<h2 className="mb-4 text-2xl font-bold">
-				Coding Minigame
+				{challenge.title}
 			</h2>
 
 			<p className="mb-4 text-slate-300">
-				Practice your Python skills to help your kingdom grow.
+				{challenge.description}
 			</p>
 
 			<p className="mb-4 text-sm text-slate-300">
@@ -181,7 +209,7 @@ export default function CodingMinigame({ onClose }) {
 
 			<div className="flex gap-2">
 				<Button
-					onClick={runCode}
+					onClick={runCode} // Run button
 					disabled={isRunning || runtimeStatus !== 'Python is ready'}
 				>
 					{isRunning ? 'Running...' : 'Run'}
@@ -194,7 +222,18 @@ export default function CodingMinigame({ onClose }) {
 				<Button onClick={resetCode} disabled={isRunning}>
 					Reset
 				</Button>
+
+				<Button // Submit button
+					onClick={submitAnswer}
+					disabled={isSubmitting || isRunning || !onSubmit}
+				>
+					{isSubmitting ? 'Submitting...' : 'Submit'}
+				</Button>
 			</div>
+
+			<p role="status" className="mt-2 text-sm text-slate-300">
+				{submissionMessage}
+			</p>
 
 			<h3 className="mb-2 mt-4 font-semibold">Output</h3>
 			<pre

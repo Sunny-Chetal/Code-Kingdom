@@ -3,6 +3,7 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from services.core.schemas import ChallengeSubmission
 
 load_dotenv()
 
@@ -29,3 +30,25 @@ async def core_health():
             return response.json()
     except httpx.HTTPError:
         raise HTTPException(status_code=502, detail="Core service unavailable")
+
+@app.post("/api/challenge-submissions", status_code=201)
+async def submit_answer(submission: ChallengeSubmission): # Forwards answers to the core service.
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(
+                f"{CORE_SERVICE_URL}/challenge-submissions",
+                json=submission.model_dump(),
+            )
+    except httpx.RequestError:
+        raise HTTPException(
+            status_code=502,
+            detail="Core service unavailable",
+        )
+
+    if response.is_error:
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=response.json().get("detail", "Could not submit the answer"),
+        )
+
+    return response.json()

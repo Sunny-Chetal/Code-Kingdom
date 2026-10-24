@@ -121,6 +121,8 @@ Verify the installed dependencies:
 python -m pip check
 ```
 
+**PyCharm setup:** In the Project panel, right-click `backend` and select **Mark Directory as > Sources Root**. This lets PyCharm resolve imports such as `from services.core.schemas import ChallengeSubmission`, matching the startup scripts, which launch the backend services from the `backend` directory. Each developer using PyCharm should configure this locally.
+
 ### 3. Install Frontend Dependencies
 
 Navigate to the frontend directory and install the required packages:
@@ -164,6 +166,16 @@ Both `.env` files are excluded from Git tracking, allowing developers to configu
 **Note:** PostgreSQL initializes its database user and password when the Docker database volume is first created. Changing the password in `.env` after initialization does not automatically change the existing database user's password. Existing installations must update the password within PostgreSQL as well.
 
 Do not commit private credentials or production environment files.
+
+#### Create the Answer Submission Table
+
+With PostgreSQL running and `backend/.env` configured, run this command from the project root:
+
+```powershell
+.\.venv\Scripts\python.exe -c "from backend.services.core.db import engine; from backend.services.core.models import ChallengeSubmissionRecord; ChallengeSubmissionRecord.__table__.create(bind=engine, checkfirst=True)"
+```
+
+This creates the table used to store submitted challenge answers. Each developer must run it against their local database. If the table already exists, the command leaves it unchanged.
 
 ### 5. Start the Application
 
