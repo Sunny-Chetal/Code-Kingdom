@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import {useState} from 'react'
 import Button from './Button'
 
 // Displays tutorial steps; the parent supplies completion IDs and the completion callback.
-export default function Tutorial({ tutorial, completedTutorialIds, onComplete }) {
+export default function Tutorial({tutorial, completedTutorialIds, onComplete}) {
 	const [currentStep, setCurrentStep] = useState(0) // Index of the displayed step.
 	const lesson = tutorial.steps[currentStep] // Content for the selected step.
 	const isCompleted = completedTutorialIds.includes(tutorial.id) // Checks the parent’s completion list.
