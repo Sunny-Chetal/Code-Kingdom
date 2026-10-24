@@ -163,6 +163,8 @@ Ensure the username, password, and database name in the backend connection strin
 
 Both `.env` files are excluded from Git tracking, allowing developers to configure their own local database credentials without committing them to the repository.
 
+The login portal uses this same `DATABASE_URL` and initializes its user tables from `backend/database/users.sql` when it starts.
+
 **Note:** PostgreSQL initializes its database user and password when the Docker database volume is first created. Changing the password in `.env` after initialization does not automatically change the existing database user's password. Existing installations must update the password within PostgreSQL as well.
 
 Do not commit private credentials or production environment files.
@@ -306,4 +308,3 @@ Restart the development services to apply Python code changes:
 .\stop-dev.ps1
 .\start-dev.ps1
 ```
-
