@@ -83,6 +83,28 @@ export default function App() {
     })
   }
 
+  async function submitAnswer(code) { // Sends the answer with the current challenge's ID.
+		const response = await fetch(
+			'http://127.0.0.1:8000/api/challenge-submissions',
+			{
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					challenge_id: tutorialData.challenge.id,
+					code,
+				}),
+			}
+		)
+
+		if (!response.ok) {
+			throw new Error('Answer submission failed')
+		}
+
+		return response.json()
+	}
+
   return (
 		<main className="min-h-screen bg-slate-950 p-8 text-white">
 			<h1 className="mb-6 text-center text-3xl font-bold">
@@ -102,7 +124,11 @@ export default function App() {
 			/>
 
 			{isMinigameOpen ? (
-				<CodingMinigame onClose={() => setIsMinigameOpen(false)} />
+                <CodingMinigame
+					challenge={tutorialData.challenge}
+					onSubmit={submitAnswer}
+					onClose={() => setIsMinigameOpen(false)}
+				/>
 			) : (
 				<div className="mt-6 text-center">
 					<Button
