@@ -65,6 +65,13 @@ def check_structure(source, required_names): # Checks simple assignments and dir
                     return False
                 assigned.add(target.id)
 
+        elif isinstance(statement, ast.AugAssign):
+            # Allow updates such as += only after the variable is assigned.
+            if not isinstance(statement.target, ast.Name):
+                return False
+            if statement.target.id not in assigned:
+                return False
+
         elif isinstance(statement, ast.Expr):
             call = statement.value # An expression statement may contain a function call.
 

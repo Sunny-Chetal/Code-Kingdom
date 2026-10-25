@@ -4,6 +4,7 @@ import Tutorial from './components/Tutorial' // Imports the logic for tutorials
 import tutorials from './data/tutorial' // Tutorials in progression order.import Button from './components/Button'
 import CodingMinigame from './components/CodingMinigame'
 import Button from "./components/Button.jsx";
+import LearningWindow from './components/LearningWindow'
 
 // Everything with comments was added by Jordan and will be moved to separate files soon
 
@@ -19,7 +20,15 @@ export default function App() {
 	const tutorialData = tutorials.find(tutorial => !passedChallengeIds.includes(tutorial.challenge.id))
 	// A missing tutorial means every available challenge has been passed.
 	const allTutorialsCompleted = tutorialData === undefined
-	const isMinigameUnlocked = !allTutorialsCompleted && completedTutorialIds.includes(tutorialData.id)
+	// Controls whether the tutorial/challenge popup is open.
+	const [isLearningOpen, setIsLearningOpen] = useState(false)
+	// Keeps each challenge's editor text when switching between panels.
+	const [challengeDrafts, setChallengeDrafts] = useState({})
+
+	// Entry point for the button or an NPC interaction.
+	function openLearningPanel() {
+		setIsLearningOpen(true)
+	}
 
 	useEffect(() => {
 		const controller = new AbortController()
@@ -87,6 +96,24 @@ export default function App() {
 		})
 	}
 
+	function updateChallengeCode(nextCode) {
+		// Store drafts by challenge ID so different challenges keep separate code.
+		setChallengeDrafts(previousDrafts => ({
+			...previousDrafts,
+			[tutorialData.challenge.id]: nextCode,
+		}))
+	}
+
+	function startChallenge() {
+		// Initialize a draft on the first visit; preserve it on later visits.
+		updateChallengeCode(
+			challengeDrafts[tutorialData.challenge.id]
+			?? tutorialData.challenge.starterCode
+		)
+
+		setIsMinigameOpen(true)
+	}
+
 	function completeChallenge(challengeId) {
 		// Record each passed challenge only once.
 		setPassedChallengeIds(previousIds => {
@@ -140,36 +167,43 @@ export default function App() {
 				</p>
 			) : (
 				<>
-					<Tutorial
-						key={tutorialData.id}
-						tutorial={tutorialData}
-						completedTutorialIds={completedTutorialIds}
-						onComplete={completeTutorial}
-					/>
+					<Button onClick={openLearningPanel}>
+						Open tutorial
+					</Button>
 
-					{isMinigameOpen ? (
-						<CodingMinigame
-							challenge={tutorialData.challenge}
-							onSubmit={submitAnswer}
-							onPassed={completeChallenge}
-							onClose={() => setIsMinigameOpen(false)}
-						/>
-					) : (
-						<div className="mt-6 text-center">
-							<Button
-								onClick={() => setIsMinigameOpen(true)}
-								disabled={!isMinigameUnlocked}
-							>
-								Open Coding Minigame
-							</Button>
-
-							{!isMinigameUnlocked && (
-								<p className="mt-2 text-sm text-slate-300">
-									Complete {tutorialData.title} to unlock this minigame.
-								</p>
-							)}
+					<LearningWindow
+						isOpen={isLearningOpen}
+						onClose={() => setIsLearningOpen(false)}
+						title={tutorialData.title}
+					>
+						{/* Hide without unmounting so the tutorial keeps its current step. */}
+						<div hidden={isMinigameOpen}>
+							<Tutorial
+								key={tutorialData.id}
+								tutorial={tutorialData}
+								completedTutorialIds={completedTutorialIds}
+								onComplete={completeTutorial}
+									onStartChallenge={startChallenge}
+									hasChallengeDraft={
+										challengeDrafts[tutorialData.challenge.id] !== undefined
+									}
+							/>
 						</div>
-					)}
+
+							{isMinigameOpen && (
+								<CodingMinigame
+									challenge={tutorialData.challenge}
+									code={
+										challengeDrafts[tutorialData.challenge.id]
+										?? tutorialData.challenge.starterCode
+									}
+									onCodeChange={updateChallengeCode}
+									onSubmit={submitAnswer}
+									onPassed={completeChallenge}
+									onClose={() => setIsMinigameOpen(false)}
+								/>
+							)}
+					</LearningWindow>
 				</>
 			)}
 		</main>

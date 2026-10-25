@@ -1,14 +1,21 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
 import Button from './Button'
+import './LearningPanels.css'
 
 // Displays the Python editor, controls, and output; the parent supplies onClose.
-export default function CodingMinigame({ onClose, onSubmit, onPassed, challenge }) {
+export default function CodingMinigame({
+	onClose,
+	onSubmit,
+	onPassed,
+	challenge,
+	code,
+	onCodeChange,
+}) {
 	const workerRef = useRef(null) // Current Python worker, retained between renders.
 	const timeoutRef = useRef(null) // Timer used to stop long-running code.
 	const pendingGradeRef = useRef(null) // Holds the waiting submission's grading callbacks.
 	const [output, setOutput] = useState('') // Printed output or execution messages.
 	const [isRunning, setIsRunning] = useState(false) // Controls execution-button availability.
-	const [code, setCode] = useState(challenge.starterCode) // Initial editor text comes from the challenge.
 	const [runtimeStatus, setRuntimeStatus] = useState('Loading Python...') // Tracks the python worker
 	const [isSubmitting, setIsSubmitting] = useState(false) // Tracks an answer submission in progress.
 	const [submissionMessage, setSubmissionMessage] = useState('') // Displays submission feedback.
@@ -190,7 +197,7 @@ export default function CodingMinigame({ onClose, onSubmit, onPassed, challenge 
 			return
 		}
 
-		setCode(challenge.starterCode)
+		onCodeChange(challenge.starterCode)
 		setOutput('')
 		setSubmissionMessage('')
 	}
@@ -256,8 +263,8 @@ export default function CodingMinigame({ onClose, onSubmit, onPassed, challenge 
 		}
 	}
 
-	function updateCode(nextCode) { // Clears feedback when the answer changes.
-		setCode(nextCode)
+	function updateCode(nextCode) { // Updates the parent's draft and clears old feedback.
+		onCodeChange(nextCode)
 		setSubmissionMessage('')
 	}
 
@@ -291,7 +298,7 @@ export default function CodingMinigame({ onClose, onSubmit, onPassed, challenge 
 
 	// State drives the editor, status, output, and controls; Close calls the parent’s onClose.
 	return (
-		<section className="mx-auto mt-8 max-w-3xl rounded-lg bg-slate-800 p-6 text-white">
+		<section className="learning-panel">
 			<h2 className="mb-4 text-2xl font-bold">
 				{challenge.title}
 			</h2>
@@ -359,8 +366,11 @@ export default function CodingMinigame({ onClose, onSubmit, onPassed, challenge 
 				{output}
 			</pre>
 
-			<Button onClick={onClose}>
-				Close
+			<Button
+				onClick={onClose}
+				disabled={isRunning || isSubmitting}
+			>
+				Back to tutorial
 			</Button>
 		</section>
 	)
