@@ -1,8 +1,15 @@
 import {useState} from 'react'
 import Button from './Button'
+import './LearningPanels.css'
 
 // Displays tutorial steps; the parent supplies completion IDs and the completion callback.
-export default function Tutorial({tutorial, completedTutorialIds, onComplete}) {
+export default function Tutorial({
+	tutorial,
+	completedTutorialIds,
+	onComplete,
+	onStartChallenge,
+	hasChallengeDraft,
+}) {
 	const [currentStep, setCurrentStep] = useState(0) // Index of the displayed step.
 	const lesson = tutorial.steps[currentStep] // Content for the selected step.
 	const isCompleted = completedTutorialIds.includes(tutorial.id) // Checks the parent’s completion list.
@@ -10,7 +17,7 @@ export default function Tutorial({tutorial, completedTutorialIds, onComplete}) {
 
 	// Navigation changes currentStep; the completion button calls onComplete with this tutorial’s ID.
 	return (
-		<section className="mx-auto mt-8 max-w-3xl rounded-lg bg-slate-800 p-6 text-white">
+		<section className="learning-panel">
 			<h2 className="mb-4 text-2xl font-bold">Programming Tutorial</h2>
 			<h3 className="mb-2 text-xl font-semibold">{lesson.title}</h3>
 			<p className="mb-4 text-slate-300">{lesson.explanation}</p>
@@ -40,9 +47,15 @@ export default function Tutorial({tutorial, completedTutorialIds, onComplete}) {
 			</div>
 
 			{isCompleted ? (
-				<p className="mt-4 text-green-400">
-					Tutorial completed
-				</p>
+				<div className="mt-4">
+					<p className="mb-3">
+						Tutorial completed
+					</p>
+
+					<Button onClick={onStartChallenge}>
+						{hasChallengeDraft ? 'Resume challenge' : 'Start challenge'}
+					</Button>
+				</div>
 			) : (
 				isLastStep && (
 					<div className="mt-4">
