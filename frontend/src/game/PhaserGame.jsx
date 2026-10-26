@@ -13,7 +13,25 @@ export default function PhaserGame() {
       parent: container.current
     })
 
-    return () => game.destroy(true)
+    function syncKeyboardFocus() {
+      if (!game.input?.keyboard) return
+      const editing = document.activeElement?.closest(
+        'dialog, input, textarea, select, [contenteditable="true"]'
+      )
+      game.input.keyboard.enabled = !editing
+      for (const scene of game.scene.getScenes(true)) {
+        scene.input.keyboard?.resetKeys()
+      }
+    }
+
+    document.addEventListener('focusin', syncKeyboardFocus)
+    game.events.once(Phaser.Core.Events.READY, syncKeyboardFocus)
+
+    return () => {
+      document.removeEventListener('focusin', syncKeyboardFocus)
+      game.events.off(Phaser.Core.Events.READY, syncKeyboardFocus)
+      game.destroy(true)
+    }
   }, [])
 
   return (
