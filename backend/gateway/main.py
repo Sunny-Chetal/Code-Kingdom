@@ -3,7 +3,7 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from services.core.schemas import ChallengeSubmission
+from services.core.schemas import ChallengeSubmission, CodingQuestionCreate
 
 load_dotenv()
 
@@ -81,3 +81,8 @@ async def list_questions():
 @app.get("/api/coding-questions/{question_id}")
 async def get_question(question_id: int):
     return await forward_to_core("GET", f"/coding-questions/{question_id}")
+
+
+@app.post("/api/coding-questions", status_code=201)
+async def create_question(new_question: CodingQuestionCreate):
+    return await forward_to_core("POST", "/coding-questions", new_question.model_dump())
