@@ -37,5 +37,6 @@ class CodingQuestionRead(CodingQuestionCreate):
     model_config = ConfigDict(from_attributes=True)  # Allows building this from a database record.
 
     id: int
+    reward: int  # Gold earned for solving the question.
     created_at: datetime
     updated_at: datetime
