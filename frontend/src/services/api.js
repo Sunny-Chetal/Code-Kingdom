@@ -19,3 +19,36 @@ export async function submitChallengeAnswer(challengeId, code) {
     }
     return response.json()
 }
+
+// ---------- Coding questions (administrator question management) ----------
+
+async function questionRequest(path, options = {}) { // Sends a request and turns API errors into readable messages.
+	const response = await fetch(`${API_BASE_URL}/coding-questions${path}`, {
+		headers: {'Content-Type': 'application/json'},
+		...options,
+	})
+	if (!response.ok) {
+		const body = await response.json().catch(() => ({}))
+		const detail = Array.isArray(body.detail)
+			? body.detail.map(problem => `${problem.loc.at(-1)}: ${problem.msg}`).join(', ')
+			: body.detail
+		throw new Error(detail || `HTTP ${response.status}`)
+	}
+	return response.status === 204 ? null : response.json()
+}
+
+export function getCodingQuestions() {
+	return questionRequest('')
+}
+
+export function createCodingQuestion(question) {
+	return questionRequest('', {method: 'POST', body: JSON.stringify(question)})
+}
+
+export function updateCodingQuestion(id, changes) {
+	return questionRequest(`/${id}`, {method: 'PATCH', body: JSON.stringify(changes)})
+}
+
+export function deleteCodingQuestion(id) {
+	return questionRequest(`/${id}`, {method: 'DELETE'})
+}
