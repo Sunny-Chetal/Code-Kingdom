@@ -1,11 +1,14 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
 from .db import Base, engine, SessionLocal
 from .models import ChallengeSubmissionRecord, CodingQuestionRecord
-from .schemas import ChallengeSubmission
+from .schemas import (
+    ChallengeSubmission,
+    CodingQuestionRead,
+)
 
 
 @asynccontextmanager
@@ -61,3 +64,33 @@ def submit_answer(submission: ChallengeSubmission):  # Validates and stores a su
             status_code=503,
             detail="Could not store the submission",
         )
+
+
+# ---------- Coding questions (administrator question management) ----------
+
+def find_question(session, question_id: int) -> CodingQuestionRecord:  # Loads a question or responds with 404.
+    question = session.get(CodingQuestionRecord, question_id)
+    if question is None:
+        raise HTTPException(status_code=404, detail="Coding question not found")
+    return question
+
+
+@app.get("/coding-questions", response_model=list[CodingQuestionRead])
+def list_questions():  # Returns every stored question, oldest first.
+    try:
+        with SessionLocal() as session:
+            questions = session.scalars(
+                select(CodingQuestionRecord).order_by(CodingQuestionRecord.id)
+            ).all()
+            return [CodingQuestionRead.model_validate(question) for question in questions]
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="Could not load the coding questions")
+
+
+@app.get("/coding-questions/{question_id}", response_model=CodingQuestionRead)
+def get_question(question_id: int):  # Returns a single question.
+    try:
+        with SessionLocal() as session:
+            return CodingQuestionRead.model_validate(find_question(session, question_id))
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="Could not load the coding question")
