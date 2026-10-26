@@ -47,3 +47,16 @@ def test_questions_are_stored_in_the_database():  # CK-17
         assert stored.checks == QUESTION["checks"]
         assert stored.difficulty == "medium"
         assert stored.created_at is not None
+
+
+def test_lists_and_displays_questions():  # CK-13
+    question_id = store_question()
+    with client:
+        listed = client.get("/coding-questions")
+        assert listed.status_code == 200
+        assert question_id in [q["id"] for q in listed.json()]
+
+        single = client.get(f"/coding-questions/{question_id}")
+        assert single.json()["title"] == QUESTION["title"]
+
+        assert client.get("/coding-questions/999999").status_code == 404
