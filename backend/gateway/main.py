@@ -3,7 +3,7 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from services.core.schemas import ChallengeSubmission, CodingQuestionCreate
+from services.core.schemas import ChallengeSubmission, CodingQuestionCreate, CodingQuestionUpdate
 
 load_dotenv()
 
@@ -86,3 +86,8 @@ async def get_question(question_id: int):
 @app.post("/api/coding-questions", status_code=201)
 async def create_question(new_question: CodingQuestionCreate):
     return await forward_to_core("POST", "/coding-questions", new_question.model_dump())
+
+
+@app.patch("/api/coding-questions/{question_id}")
+async def update_question(question_id: int, changes: CodingQuestionUpdate):
+    return await forward_to_core("PATCH", f"/coding-questions/{question_id}", changes.model_dump(exclude_unset=True))
