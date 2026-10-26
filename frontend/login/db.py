@@ -1,9 +1,21 @@
 import psycopg
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+from sqlalchemy.engine import make_url
 from psycopg.rows import dict_row
 from pwdlib import PasswordHash
 
 # Uses 127.0.0.1 (avoids IPv6 timeout) and matches the project's Docker credentials
-DB_URI = "postgresql://codekingdom:localdevonly@127.0.0.1:5432/codekingdom"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(PROJECT_ROOT / "backend" / ".env")
+
+DB_URI = (
+    make_url(os.environ["DATABASE_URL"])
+    .set(drivername="postgresql")
+    .render_as_string(hide_password=False)
+)
+
 hasher = PasswordHash.recommended()
 def init_db():
     with psycopg.connect(DB_URI) as conn:

@@ -5,3 +5,5 @@ alembic
 python-dotenv
 httpx
 pytest
+pwdlib[argon2]
+itsdangerous
