@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from .db import Base, engine, SessionLocal
@@ -128,3 +128,13 @@ def update_question(question_id: int, changes: CodingQuestionUpdate):  # Edits o
         raise HTTPException(status_code=409, detail="A question with this slug already exists")
     except SQLAlchemyError:
         raise HTTPException(status_code=503, detail="Could not update the coding question")
+
+
+@app.delete("/coding-questions/{question_id}", status_code=204)
+def delete_question(question_id: int):  # Removes a question permanently.
+    try:
+        with SessionLocal.begin() as session:
+            session.delete(find_question(session, question_id))
+        return Response(status_code=204)
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="Could not delete the coding question")
