@@ -1,7 +1,7 @@
 import os
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from services.core.schemas import ChallengeSubmission, CodingQuestionCreate, CodingQuestionUpdate
 
@@ -70,6 +70,9 @@ async def forward_to_core(method: str, path: str, payload: dict | None = None):
         except ValueError:
             detail = "Coding question request failed"
         raise HTTPException(status_code=response.status_code, detail=detail)
+
+    if response.status_code == 204:
+        return Response(status_code=204)
     return response.json()
 
 
@@ -91,3 +94,8 @@ async def create_question(new_question: CodingQuestionCreate):
 @app.patch("/api/coding-questions/{question_id}")
 async def update_question(question_id: int, changes: CodingQuestionUpdate):
     return await forward_to_core("PATCH", f"/coding-questions/{question_id}", changes.model_dump(exclude_unset=True))
+
+
+@app.delete("/api/coding-questions/{question_id}", status_code=204)
+async def delete_question(question_id: int):
+    return await forward_to_core("DELETE", f"/coding-questions/{question_id}")

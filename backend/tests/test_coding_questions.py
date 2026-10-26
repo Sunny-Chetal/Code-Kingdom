@@ -82,3 +82,11 @@ def test_edits_only_the_fields_sent():  # CK-15
         assert edited.json()["title"] == QUESTION["title"]  # Unsent fields stay the same.
 
         assert client.patch("/coding-questions/999999", json={"title": "Nope"}).status_code == 404
+
+
+def test_deletes_questions():  # CK-16
+    question_id = store_question()
+    with client:
+        assert client.delete(f"/coding-questions/{question_id}").status_code == 204
+        assert client.get(f"/coding-questions/{question_id}").status_code == 404
+        assert client.delete(f"/coding-questions/{question_id}").status_code == 404
