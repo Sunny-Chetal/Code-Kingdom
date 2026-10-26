@@ -1,11 +1,23 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
-from .db import engine, SessionLocal
-from .models import ChallengeSubmissionRecord
+from .db import Base, engine, SessionLocal
+from .models import ChallengeSubmissionRecord, CodingQuestionRecord
 from .schemas import ChallengeSubmission
 
-app = FastAPI(title="Code Kingdom Core Service")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # Creates any missing tables on startup (until the team sets up Alembic).
+    try:
+        Base.metadata.create_all(bind=engine)
+    except SQLAlchemyError:
+        pass  # The health check reports the database as unavailable instead of crashing.
+    yield
+
+
+app = FastAPI(title="Code Kingdom Core Service", lifespan=lifespan)
 
 @app.get("/health")
 def health():
