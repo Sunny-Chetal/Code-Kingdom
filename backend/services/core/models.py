@@ -22,6 +22,14 @@ class ChallengeSubmissionRecord(Base):  # Defines a submission table using the s
     )
 
 
+# Gold a student earns for solving a question at each difficulty level.
+DIFFICULTY_REWARDS = {
+    "easy": 25,
+    "medium": 50,
+    "hard": 100,
+}
+
+
 class CodingQuestionRecord(Base):  # Stores the coding questions administrators manage.
     __tablename__ = "coding_questions"  # Table name in PostgreSQL.
 
@@ -45,3 +53,7 @@ class CodingQuestionRecord(Base):  # Stores the coding questions administrators 
         onupdate=func.now(),
         nullable=False,
     )
+
+    @property
+    def reward(self) -> int:  # Gold earned for this question, based on its difficulty.
+        return DIFFICULTY_REWARDS[self.difficulty]

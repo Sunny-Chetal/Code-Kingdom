@@ -90,3 +90,14 @@ def test_deletes_questions():  # CK-16
         assert client.delete(f"/coding-questions/{question_id}").status_code == 204
         assert client.get(f"/coding-questions/{question_id}").status_code == 404
         assert client.delete(f"/coding-questions/{question_id}").status_code == 404
+
+
+def test_reward_follows_difficulty():  # CK-20
+    easy_id = store_question(slug="test-easy", difficulty="easy")
+    hard_id = store_question(slug="test-hard", difficulty="hard")
+    with client:
+        assert client.get(f"/coding-questions/{easy_id}").json()["reward"] == 25
+        assert client.get(f"/coding-questions/{hard_id}").json()["reward"] == 100
+
+        edited = client.patch(f"/coding-questions/{easy_id}", json={"difficulty": "medium"})
+        assert edited.json()["reward"] == 50  # Changing difficulty changes the reward.
