@@ -16,7 +16,7 @@ if (!$node -or !(Test-Path $vite)) {
 }
 
 # Avoid launching duplicate servers
-foreach ($port in @(5173, 8000, 8001)) {
+foreach ($port in @(5173, 8000, 8001, 8002)) {
     if (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue) {
         throw "Port $port is already in use. Stop existing servers first."
     }
@@ -71,6 +71,12 @@ $core = Start-DevService `
     -Arguments "-m uvicorn services.core.main:app --port 8001" `
     -WorkingDirectory (Join-Path $root "backend")
 
+$login = Start-DevService `
+    -Name "StartHere" `
+    -Executable $python `
+    -Arguments "-m uvicorn login:app --port 8002" `
+    -WorkingDirectory (Join-Path $root "frontend\login")
+
 $gateway = Start-DevService `
     -Name "Gateway" `
     -Executable $python `
@@ -87,10 +93,14 @@ $frontend = Start-DevService `
     core = $core
     gateway = $gateway
     frontend = $frontend
+    login = $login
 } | ConvertTo-Json | Set-Content $pidFile
 
 Write-Host ""
 Write-Host "Code Kingdom development services started."
-Write-Host "Frontend: http://localhost:5173"
+Write-Host "StartHere:    http://127.0.0.1:8002"
 Write-Host "Gateway:  http://127.0.0.1:8000/api/health"
 Write-Host "Core:     http://127.0.0.1:8001/health"
+
+# Automatically launch the login portal in your default browser
+Start-Process "http://127.0.0.1:8002"

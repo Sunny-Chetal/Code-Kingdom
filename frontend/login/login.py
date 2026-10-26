@@ -14,7 +14,7 @@ load_dotenv()
 app = FastAPI()
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET", "dev-only-change-me"),
+    secret_key=os.getenv("SESSION_SECRET") or "dev-only-change-me",
     same_site="lax",
     https_only=False,  
 )
