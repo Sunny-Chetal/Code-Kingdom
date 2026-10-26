@@ -71,3 +71,14 @@ def test_creates_questions_and_rejects_bad_input():  # CK-14
         assert client.post("/coding-questions", json=QUESTION).status_code == 409  # Duplicate slug.
         assert client.post("/coding-questions", json={**QUESTION, "slug": "test-x", "difficulty": "impossible"}).status_code == 422
         assert client.post("/coding-questions", json={**QUESTION, "slug": "Has Spaces"}).status_code == 422
+
+
+def test_edits_only_the_fields_sent():  # CK-15
+    question_id = store_question()
+    with client:
+        edited = client.patch(f"/coding-questions/{question_id}", json={"difficulty": "hard"})
+        assert edited.status_code == 200
+        assert edited.json()["difficulty"] == "hard"
+        assert edited.json()["title"] == QUESTION["title"]  # Unsent fields stay the same.
+
+        assert client.patch("/coding-questions/999999", json={"title": "Nope"}).status_code == 404

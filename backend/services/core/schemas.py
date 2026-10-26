@@ -22,6 +22,16 @@ class CodingQuestionCreate(BaseModel):
     difficulty: Difficulty = "easy"
 
 
+# Every field is optional when editing, so only the changed fields need to be sent.
+class CodingQuestionUpdate(BaseModel):
+    slug: str | None = Field(default=None, min_length=1, max_length=100, pattern=r"^[a-z0-9-]+$")
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, min_length=1)
+    starter_code: str | None = None
+    checks: dict[str, Any] | None = None
+    difficulty: Difficulty | None = None
+
+
 # What the API sends back for a stored question.
 class CodingQuestionRead(CodingQuestionCreate):
     model_config = ConfigDict(from_attributes=True)  # Allows building this from a database record.

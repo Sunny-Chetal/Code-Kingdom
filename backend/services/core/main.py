@@ -9,6 +9,7 @@ from .schemas import (
     ChallengeSubmission,
     CodingQuestionCreate,
     CodingQuestionRead,
+    CodingQuestionUpdate,
 )
 
 
@@ -110,3 +111,20 @@ def create_question(new_question: CodingQuestionCreate):  # Stores a new questio
         raise HTTPException(status_code=409, detail="A question with this slug already exists")
     except SQLAlchemyError:
         raise HTTPException(status_code=503, detail="Could not store the coding question")
+
+
+@app.patch("/coding-questions/{question_id}", response_model=CodingQuestionRead)
+def update_question(question_id: int, changes: CodingQuestionUpdate):  # Edits only the fields that were sent.
+    try:
+        with SessionLocal.begin() as session:
+            question = find_question(session, question_id)
+            for field, value in changes.model_dump(exclude_unset=True).items():
+                if value is not None:
+                    setattr(question, field, value)
+            session.flush()
+            session.refresh(question)
+            return CodingQuestionRead.model_validate(question)
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="A question with this slug already exists")
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="Could not update the coding question")
