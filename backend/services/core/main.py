@@ -2,11 +2,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import select, text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from .db import Base, engine, SessionLocal
 from .models import ChallengeSubmissionRecord, CodingQuestionRecord
 from .schemas import (
     ChallengeSubmission,
+    CodingQuestionCreate,
     CodingQuestionRead,
 )
 
@@ -94,3 +95,18 @@ def get_question(question_id: int):  # Returns a single question.
             return CodingQuestionRead.model_validate(find_question(session, question_id))
     except SQLAlchemyError:
         raise HTTPException(status_code=503, detail="Could not load the coding question")
+
+
+@app.post("/coding-questions", status_code=201, response_model=CodingQuestionRead)
+def create_question(new_question: CodingQuestionCreate):  # Stores a new question.
+    try:
+        with SessionLocal.begin() as session:
+            question = CodingQuestionRecord(**new_question.model_dump())
+            session.add(question)
+            session.flush()  # Inserts the record so its ID and timestamps become available.
+            session.refresh(question)
+            return CodingQuestionRead.model_validate(question)
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="A question with this slug already exists")
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="Could not store the coding question")

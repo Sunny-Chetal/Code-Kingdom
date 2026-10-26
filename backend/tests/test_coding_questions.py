@@ -60,3 +60,14 @@ def test_lists_and_displays_questions():  # CK-13
         assert single.json()["title"] == QUESTION["title"]
 
         assert client.get("/coding-questions/999999").status_code == 404
+
+
+def test_creates_questions_and_rejects_bad_input():  # CK-14
+    with client:
+        created = client.post("/coding-questions", json=QUESTION)
+        assert created.status_code == 201
+        assert created.json()["checks"] == QUESTION["checks"]
+
+        assert client.post("/coding-questions", json=QUESTION).status_code == 409  # Duplicate slug.
+        assert client.post("/coding-questions", json={**QUESTION, "slug": "test-x", "difficulty": "impossible"}).status_code == 422
+        assert client.post("/coding-questions", json={**QUESTION, "slug": "Has Spaces"}).status_code == 422
