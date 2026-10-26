@@ -1,0 +1,142 @@
+/* Shared parchment frame for tutorial and challenge panels. */
+.learning-panel {
+	width: 100%;
+	max-width: 52rem; /* Caps panel width while allowing smaller screens. */
+	margin: 2rem auto;
+	padding: clamp(1rem, 3vw, 2rem); /* Adjusts spacing with the viewport width. */
+	border: 4px solid #ad6b32; /* Dark outer dirt-colored frame. */
+	border-radius: 2px;
+
+	/* Small, hard-edged squares create a pixel checkerboard. */
+	background-color: #d6c49a;
+	background-image: conic-gradient(
+		#d6c49a 25%,
+		#ceba8e 0 50%,
+		#d6c49a 0 75%,
+		#ceba8e 0
+	);
+	background-size: 8px 8px; /* Each repeating tile contains four 4px squares. */
+	color: #342b27;
+	box-shadow: inset 0 0 0 4px #d5a15c; /* Lighter frame drawn inside the border. */
+	line-height: 1.6;
+}
+
+/* Separate panel headings from the instructions below. */
+.learning-panel h2 {
+	padding-bottom: 0.75rem;
+	border-bottom: 2px solid #c99b55;
+	color: #49372f;
+	letter-spacing: 0.03em;
+}
+
+/* Instructions and status text need contrast against parchment. */
+.learning-panel p,
+.learning-panel span {
+	color: #584536;
+}
+
+/* Dark code areas remain distinct from the instructions. */
+.learning-panel pre,
+.learning-panel textarea {
+	border: 2px solid #806344;
+	border-radius: 2px;
+	background: #242730;
+	color: #d8edb0;
+	tab-size: 4; /* Display each literal tab as four character widths. */
+}
+
+/* These overrides apply only to buttons inside the learning panels. */
+.learning-panel button {
+	border: 2px solid #49372f;
+	border-radius: 2px;
+	background: #93633e;
+	color: #fff6db;
+	box-shadow: 0 3px 0 #49372f;
+	font-weight: 700;
+}
+
+.learning-panel button:hover:not(:disabled) {
+	background: #795033;
+}
+
+/* Keep keyboard focus visible on buttons and the editor. */
+.learning-panel button:focus-visible,
+.learning-panel textarea:focus-visible {
+	outline: 3px solid #286377;
+	outline-offset: 3px;
+}
+
+/* Make unavailable controls look inactive. */
+.learning-panel button:disabled {
+	opacity: 0.5;
+	box-shadow: none;
+}
+
+/* PANEL POSITION: auto margins center the popup in the browser viewport. */
+.learning-dialog {
+	position: fixed; /* Position relative to the viewport rather than page content. */
+	inset: 0;
+	margin: auto;
+	width: min(54rem, calc(100vw - 2rem)); /* Leave room at the browser edges. */
+	max-width: none;
+	max-height: calc(100dvh - 2rem); /* Limit height to the currently visible viewport. */
+	padding: 0.5rem;
+	border: none;
+	background: transparent;
+	color: #fff6db;
+	overflow-y: auto; /* Scroll the popup when its contents exceed the height limit. */
+}
+
+/* Dim the game behind the active window. */
+.learning-dialog::backdrop {
+	background: rgb(15 18 24 / 65%);
+}
+
+/* Match the panel width to the dialog's title bar. */
+.learning-dialog .learning-panel {
+	margin: 0;
+	max-width: none;
+}
+
+/* Window controls are separate from the tutorial and challenge content. */
+.learning-window-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.5rem 1rem;
+	border: 4px solid #ad6b32; /* Dark outer dirt-colored frame. */
+	background: #93633e;
+	color: #fff6db;
+}
+
+/* Keep the title compact; these drag hints currently apply to the heading. */
+.learning-window-header h2 {
+	margin: 0;
+	font-weight: 700;
+	cursor: grab;
+	touch-action: none; /* Prevent touch scrolling from taking over a drag here. */
+	user-select: none; /* Avoid selecting the title text during a drag. */
+}
+
+.learning-window-header:active {
+	cursor: grabbing;
+}
+
+/* Style the window close button. */
+.learning-window-header button {
+	padding: 0.25rem 0.75rem;
+	border: 2px solid #49372f;
+	background: #795033;
+	color: #fff6db;
+	cursor: pointer;
+}
+
+.learning-window-header button:hover {
+	background: #63412b;
+}
+
+.learning-window-header button:focus-visible {
+	outline: 3px solid #fff6db;
+	outline-offset: 2px;
+}
