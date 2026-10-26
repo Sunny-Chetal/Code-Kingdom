@@ -5,7 +5,6 @@ from pwdlib import PasswordHash
 # Uses 127.0.0.1 (avoids IPv6 timeout) and matches the project's Docker credentials
 DB_URI = "postgresql://codekingdom:localdevonly@127.0.0.1:5432/codekingdom"
 hasher = PasswordHash.recommended()
-
 def init_db():
     with psycopg.connect(DB_URI) as conn:
         conn.execute("CREATE SCHEMA IF NOT EXISTS users;")
@@ -13,8 +12,13 @@ def init_db():
             CREATE TABLE IF NOT EXISTS users.login(
                 username VARCHAR(255) PRIMARY KEY,
                 email VARCHAR(255) UNIQUE NOT NULL,
-                password VARCHAR(255) NOT NULL
+                password VARCHAR(255) NOT NULL,
+                role VARCHAR(50) NOT NULL DEFAULT 'Student'
             );
+        """)
+        conn.execute("""
+            ALTER TABLE users.login
+                ADD COLUMN IF NOT EXISTS role VARCHAR(50) NOT NULL DEFAULT 'Student';
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS users.stats(
@@ -31,7 +35,7 @@ def get_user_by_username(username: str):
             "SELECT * FROM users.login WHERE username = %s",
             (username,)
         ).fetchone()
-        if user:
+        if user and not user.get("role"):
             user["role"] = "Student"
         return user
 
