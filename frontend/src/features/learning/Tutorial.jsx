@@ -1,5 +1,5 @@
 import {useState} from 'react'
-import Button from './Button'
+import Button from '../../components/ui/Button'
 import './LearningPanels.css'
 
 // Displays tutorial steps; the parent supplies completion IDs and the completion callback.

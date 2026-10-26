@@ -18,6 +18,7 @@ export default function LearningWindow({isOpen, onClose, title, children}) {
 			}
 
 			dialog.showModal() // Opens above the page with native modal focus handling.
+			dialog.focus()
 		} else if (!isOpen && dialog.open) {
 			dialog.close()
 		}
