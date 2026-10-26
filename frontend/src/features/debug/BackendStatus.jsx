@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react'
-import {getBackendHealth} from '../services/api'
+import {getBackendHealth} from '../../services/api'
 
 export default function BackendStatus() {
 	const [backendStatus, setBackendStatus] = useState('Checking...')

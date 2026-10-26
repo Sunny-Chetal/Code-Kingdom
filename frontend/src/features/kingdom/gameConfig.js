@@ -3,6 +3,8 @@ import KingdomScene from './scenes/KingdomScene'
 
 export const gameConfig = {
   type: Phaser.AUTO,
+  pixelArt: true,
+  roundPixels: true,
   backgroundColor: '#87CEEB',
   scale: {
     mode: Phaser.Scale.RESIZE,

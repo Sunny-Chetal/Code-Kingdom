@@ -1,12 +1,11 @@
 import {useState} from 'react'
 import Tutorial from './Tutorial' // Imports the logic for tutorials
-import tutorials from '../data/tutorial' // Tutorials in progression order.import Button from './components/Button'
+import tutorials from './data/tutorial' // Tutorials in progression order.import Button from './components/Button'
 import CodingMinigame from './CodingMinigame'
-import Button from "./Button.jsx";
 import LearningWindow from './LearningWindow'
-import {submitChallengeAnswer} from '../services/api'
+import {submitChallengeAnswer} from '../../services/api'
 
-export default function LearningExperience() {
+export default function LearningExperience({isOpen, onClose}) {
 	// Tracks whether the minigame panel is visible.
 	const [isMinigameOpen, setIsMinigameOpen] = useState(false)
 	// State variable to track completed tutorials
@@ -16,15 +15,8 @@ export default function LearningExperience() {
 	const tutorialData = tutorials.find(tutorial => !passedChallengeIds.includes(tutorial.challenge.id))
 	// A missing tutorial means every available challenge has been passed.
 	const allTutorialsCompleted = tutorialData === undefined
-	// Controls whether the tutorial/challenge popup is open.
-	const [isLearningOpen, setIsLearningOpen] = useState(false)
 	// Keeps each challenge's editor text when switching between panels.
 	const [challengeDrafts, setChallengeDrafts] = useState({})
-
-	// Entry point for the button or an NPC interaction.
-	function openLearningPanel() {
-		setIsLearningOpen(true)
-	}
 
 	// Function for recording the completion
 	function completeTutorial(tutorialId) {
@@ -73,18 +65,22 @@ export default function LearningExperience() {
 
 	return (
 		allTutorialsCompleted ? (
-			<p role="status" className="mt-8 text-center text-green-400">
-				You have completed all available tutorials and challenges!
-			</p>
+			<LearningWindow
+				isOpen={isOpen}
+				onClose={onClose}
+				title="Learning completed"
+			>
+				<section className="learning-panel">
+					<p role="status">
+						You have completed all available tutorials and challenges!
+					</p>
+				</section>
+			</LearningWindow>
 		) : (
 			<>
-				<Button onClick={openLearningPanel}>
-					Open tutorial
-				</Button>
-
 				<LearningWindow
-					isOpen={isLearningOpen}
-					onClose={() => setIsLearningOpen(false)}
+					isOpen={isOpen}
+					onClose={onClose}
 					title={tutorialData.title}
 				>
 					{/* Hide without unmounting so the tutorial keeps its current step. */}

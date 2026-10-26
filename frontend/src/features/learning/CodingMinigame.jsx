@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
-import Button from './Button'
+import Button from '../../components/ui/Button'
 import './LearningPanels.css'
 
 // Displays the Python editor, controls, and output; the parent supplies onClose.
@@ -23,7 +23,7 @@ export default function CodingMinigame({
 	const startWorker = useCallback(() => { // Creates and configures the Python worker.
 		// Vite resolves the worker file; module mode supports its Pyodide imports.
 		const worker = new Worker(
-			new URL('../workers/pythonWorker.js', import.meta.url),
+			new URL('./workers/pythonWorker.js', import.meta.url),
 			{type: 'module'}
 		)
 
