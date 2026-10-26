@@ -14,7 +14,7 @@ load_dotenv()
 app = FastAPI()
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET", "dev-only-change-me"),
+    secret_key=os.getenv("SESSION_SECRET") or "dev-only-change-me",
     same_site="lax",
     https_only=False,  
 )
@@ -22,6 +22,21 @@ app.add_middleware(
 db.init_db()
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]+$")
+GAME_URL = os.getenv("GAME_DASHBOARD_URL", "http://localhost:5173")
+
+
+def validate_password(password: str) -> str | None:
+    """Returns an error message if the password fails requirements, else None."""
+    if len(password) < 8:
+        return "Password must be at least 8 characters long."
+    if not re.search(r"[A-Za-z]", password):
+        return "Password must contain at least one letter."
+    if not re.search(r"\d", password):
+        return "Password must contain at least one number."
+    if password.strip() in {"12345678", "password", "password123", "admin123"}:
+        return "This password is too common. Please choose a stronger password."
+    return None
+
 
 def render_base_page(content: str) -> str:
     return f"""<!doctype html>
@@ -42,10 +57,11 @@ def render_base_page(content: str) -> str:
         input {{ width: 100%; padding: 12px 14px; border: 1px solid #d0d5dd;
             border-radius: 8px; font: inherit; }}
         input:focus {{ outline: 3px solid #315efb33; border-color: #315efb; }}
-        button {{ width: 100%; margin-top: 16px; padding: 12px; border: 0;
+        button, .btn {{ width: 100%; margin-top: 16px; padding: 12px; border: 0;
             border-radius: 8px; background: #315efb; color: white;
-            font: inherit; font-weight: 700; cursor: pointer; }}
-        button:hover {{ background: #244bd1; }}
+            font: inherit; font-weight: 700; cursor: pointer; text-decoration: none;
+            display: inline-block; text-align: center; }}
+        button:hover, .btn:hover {{ background: #244bd1; }}
         .notice {{ padding: 12px; margin-bottom: 16px; border-radius: 8px; background: #fff4e5; color: #8a4b08; }}
         .footer-link {{ margin-top: 24px; text-align: center; font-size: 0.95rem; }}
         a {{ color: #315efb; text-decoration: none; font-weight: 600; }}
@@ -58,6 +74,7 @@ def render_base_page(content: str) -> str:
     </main>
 </body>
 </html>"""
+
 
 def render_login(message: str = "") -> str:
     notice = f'<p class="notice" role="status">{escape(message)}</p>' if message else ""
@@ -79,6 +96,7 @@ def render_login(message: str = "") -> str:
     """
     return render_base_page(content)
 
+
 def render_signup(message: str = "") -> str:
     notice = f'<p class="notice" role="status">{escape(message)}</p>' if message else ""
     content = f"""
@@ -86,14 +104,13 @@ def render_signup(message: str = "") -> str:
         <p class="intro">Join Code Kingdom to start your adventure.</p>
         {notice}
         <form action="/signup" method="post">
-        
             <label for="email">Email</label>
             <input id="email" name="email" type="email" autocomplete="email" required>     
 
             <label for="username">Username (letters, numbers, and underscores)</label>
             <input id="username" name="username" type="text" autocomplete="username" required>
             
-            <label for="password">Password</label>
+            <label for="password">Password (min 8 chars, letters & numbers)</label>
             <input id="password" name="password" type="password" autocomplete="new-password" required>
             <button type="submit">Sign up</button>
         </form>
@@ -104,10 +121,12 @@ def render_signup(message: str = "") -> str:
     """
     return render_base_page(content)
 
+
 @app.get("/", response_class=HTMLResponse)
 @app.get("/login", response_class=HTMLResponse)
 async def login_form(message: str = ""):
     return render_login(message)
+
 
 @app.post("/login", response_class=HTMLResponse)
 def login(request: Request, username: str = Form(...), password: str = Form(...)):
@@ -118,9 +137,11 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
     request.session["username"] = user["username"]
     return RedirectResponse(url="/dashboard", status_code=303)
 
+
 @app.get("/signup", response_class=HTMLResponse)
 async def signup_form():
     return render_signup()
+
 
 @app.post("/signup", response_class=HTMLResponse)
 def signup(request: Request, username: str = Form(...), email: str = Form(...), password: str = Form(...)):
@@ -129,11 +150,17 @@ def signup(request: Request, username: str = Form(...), email: str = Form(...), 
     if not USERNAME_RE.match(username):
         return HTMLResponse(render_signup("Username can only contain letters, numbers, and underscores."))
 
+    # Validate custom password requirements
+    pwd_error = validate_password(password)
+    if pwd_error:
+        return HTMLResponse(render_signup(pwd_error))
+
     if not db.create_user(username, password, email):
-        return HTMLResponse(render_signup("This username is already taken, please choose another one."))
+        return HTMLResponse(render_signup("This username or email is already taken, please choose another one."))
 
     request.session["username"] = username
     return RedirectResponse(url="/dashboard", status_code=303)
+
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
@@ -147,12 +174,17 @@ def dashboard(request: Request):
         <h1>Kingdom Dashboard</h1>
         <p class="intro">Welcome back, <strong>{escape(user["username"])}</strong>!</p>
         <p><strong>Role:</strong> {escape(user["role"])}</p>
-        <p>Your game dashboard will go here.</p>
+        
+        <div style="margin: 28px 0 16px;">
+            <a class="btn" href="{GAME_URL}">Enter Code Kingdom Game &rarr;</a>
+        </div>
+
         <div class="footer-link">
             <a href="/logout">Log out</a>
         </div>
     """
     return render_base_page(content)
+
 
 @app.get("/logout")
 async def logout(request: Request):

@@ -7,18 +7,18 @@ $pidFile = Join-Path $root ".dev-logs\processes.json"
 if (Test-Path $pidFile) {
     $processes = Get-Content $pidFile -Raw | ConvertFrom-Json
 
-    foreach ($name in @("frontend", "gateway", "core")) {
-        $processId = $processes.$name
+    foreach ($name in @("frontend", "gateway", "core", "login")) {
+    $processId = $processes.$name
 
-        if ($processId) {
-            $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+    if ($processId) {
+        $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
 
-            if ($process) {
-                Stop-Process -Id $processId -Force
-                Write-Host "Stopped $name (PID: $processId)"
-            }
+        if ($process) {
+            Stop-Process -Id $processId -Force
+            Write-Host "Stopped $name (PID: $processId)"
         }
     }
+}
 
     Remove-Item $pidFile
 }

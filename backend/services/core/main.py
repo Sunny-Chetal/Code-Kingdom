@@ -1,11 +1,28 @@
-from fastapi import FastAPI, HTTPException
-from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
-from .db import engine, SessionLocal
-from .models import ChallengeSubmissionRecord
-from .schemas import ChallengeSubmission
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="Code Kingdom Core Service")
+from fastapi import FastAPI, HTTPException, Response
+from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from .db import Base, engine, SessionLocal
+from .models import ChallengeSubmissionRecord, CodingQuestionRecord
+from .schemas import (
+    ChallengeSubmission,
+    CodingQuestionCreate,
+    CodingQuestionRead,
+    CodingQuestionUpdate,
+)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # Creates any missing tables on startup (until the team sets up Alembic).
+    try:
+        Base.metadata.create_all(bind=engine)
+    except SQLAlchemyError:
+        pass  # The health check reports the database as unavailable instead of crashing.
+    yield
+
+
+app = FastAPI(title="Code Kingdom Core Service", lifespan=lifespan)
 
 @app.get("/health")
 def health():
@@ -49,3 +66,75 @@ def submit_answer(submission: ChallengeSubmission):  # Validates and stores a su
             status_code=503,
             detail="Could not store the submission",
         )
+
+
+# ---------- Coding questions (administrator question management) ----------
+
+def find_question(session, question_id: int) -> CodingQuestionRecord:  # Loads a question or responds with 404.
+    question = session.get(CodingQuestionRecord, question_id)
+    if question is None:
+        raise HTTPException(status_code=404, detail="Coding question not found")
+    return question
+
+
+@app.get("/coding-questions", response_model=list[CodingQuestionRead])
+def list_questions():  # Returns every stored question, oldest first.
+    try:
+        with SessionLocal() as session:
+            questions = session.scalars(
+                select(CodingQuestionRecord).order_by(CodingQuestionRecord.id)
+            ).all()
+            return [CodingQuestionRead.model_validate(question) for question in questions]
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="Could not load the coding questions")
+
+
+@app.get("/coding-questions/{question_id}", response_model=CodingQuestionRead)
+def get_question(question_id: int):  # Returns a single question.
+    try:
+        with SessionLocal() as session:
+            return CodingQuestionRead.model_validate(find_question(session, question_id))
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="Could not load the coding question")
+
+
+@app.post("/coding-questions", status_code=201, response_model=CodingQuestionRead)
+def create_question(new_question: CodingQuestionCreate):  # Stores a new question.
+    try:
+        with SessionLocal.begin() as session:
+            question = CodingQuestionRecord(**new_question.model_dump())
+            session.add(question)
+            session.flush()  # Inserts the record so its ID and timestamps become available.
+            session.refresh(question)
+            return CodingQuestionRead.model_validate(question)
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="A question with this slug already exists")
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="Could not store the coding question")
+
+
+@app.patch("/coding-questions/{question_id}", response_model=CodingQuestionRead)
+def update_question(question_id: int, changes: CodingQuestionUpdate):  # Edits only the fields that were sent.
+    try:
+        with SessionLocal.begin() as session:
+            question = find_question(session, question_id)
+            for field, value in changes.model_dump(exclude_unset=True).items():
+                if value is not None:
+                    setattr(question, field, value)
+            session.flush()
+            session.refresh(question)
+            return CodingQuestionRead.model_validate(question)
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="A question with this slug already exists")
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="Could not update the coding question")
+
+
+@app.delete("/coding-questions/{question_id}", status_code=204)
+def delete_question(question_id: int):  # Removes a question permanently.
+    try:
+        with SessionLocal.begin() as session:
+            session.delete(find_question(session, question_id))
+        return Response(status_code=204)
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="Could not delete the coding question")
