@@ -15,8 +15,8 @@ export default function PhaserGame() {
 
     function syncKeyboardFocus() {
       if (!game.input?.keyboard) return
-      const editing = document.activeElement?.closest(
-        'dialog, input, textarea, select, [contenteditable="true"]'
+      const editing = document.querySelector('dialog[open]') || document.activeElement?.closest(
+        'input, textarea, select, [contenteditable="true"]'
       )
       game.input.keyboard.enabled = !editing
       for (const scene of game.scene.getScenes(true)) {
@@ -25,10 +25,12 @@ export default function PhaserGame() {
     }
 
     document.addEventListener('focusin', syncKeyboardFocus)
+    document.addEventListener('close', syncKeyboardFocus, true)
     game.events.once(Phaser.Core.Events.READY, syncKeyboardFocus)
 
     return () => {
       document.removeEventListener('focusin', syncKeyboardFocus)
+      document.removeEventListener('close', syncKeyboardFocus, true)
       game.events.off(Phaser.Core.Events.READY, syncKeyboardFocus)
       game.destroy(true)
     }
