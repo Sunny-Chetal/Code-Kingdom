@@ -1,15 +1,28 @@
+import email
 import os
 import re
+import secrets
+import smtplib
+from datetime import datetime, timedelta, timezone
 from html import escape
+from email.message import EmailMessage
+import ssl
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
+
 import db
 
-load_dotenv()
+load_dotenv(override=True)
+import resend
+
+
+resend.api_key = os.getenv("RESEND_API_KEY")
+
+
 
 app = FastAPI()
 app.add_middleware(
@@ -23,6 +36,12 @@ db.init_db()
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]+$")
 GAME_URL = os.getenv("GAME_DASHBOARD_URL", "http://localhost:5173")
+
+# Temporary in-memory store for tokens. 
+# For production, move this to your PostgreSQL database to persist across server restarts.
+RESET_TOKENS = {}
+
+
 
 
 def validate_password(password: str) -> str | None:
@@ -63,7 +82,7 @@ def render_base_page(content: str) -> str:
             display: inline-block; text-align: center; }}
         button:hover, .btn:hover {{ background: #244bd1; }}
         .notice {{ padding: 12px; margin-bottom: 16px; border-radius: 8px; background: #fff4e5; color: #8a4b08; }}
-        .footer-link {{ margin-top: 24px; text-align: center; font-size: 0.95rem; }}
+        .footer-link {{ margin-top: 24px; text-align: center; font-size: 0.95rem; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap; }}
         a {{ color: #315efb; text-decoration: none; font-weight: 600; }}
         a:hover {{ text-decoration: underline; }}
     </style>
@@ -91,8 +110,11 @@ def render_login(message: str = "") -> str:
         </form>
         <div class="footer-link">
             <span>Don't have an account? </span>
-            <a href="/signup">Sign up here!</a>
+            <a href="/signup"> Sign up here!</a>
+            <span>Forgot your password? </span>
+            <a href="/reset-password"> Click here to Reset!</a>
         </div>
+      
     """
     return render_base_page(content)
 
@@ -105,7 +127,7 @@ def render_signup(message: str = "") -> str:
         {notice}
         <form action="/signup" method="post">
             <label for="email">Email</label>
-            <input id="email" name="email" type="email" autocomplete="email" required>     
+            <input id="email" name="email" type="email" autocomplete="email" required>    
 
             <label for="username">Username (letters, numbers, and underscores)</label>
             <input id="username" name="username" type="text" autocomplete="username" required>
@@ -118,6 +140,53 @@ def render_signup(message: str = "") -> str:
             <span>Already have an account? </span>
             <a href="/login">Sign in</a>
         </div>
+    """
+    return render_base_page(content)
+
+
+def render_reset_password(message: str = "") -> str:
+    notice = f'<p class="notice" role="status">{escape(message)}</p>' if message else ""
+    content = f"""
+        <h1>Reset Password</h1>
+        <p class="intro">Enter your email to receive a reset link.</p>
+        {notice}
+        <form action="/reset-password" method="post">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" autocomplete="email" required>
+            <button type="submit">Send Reset Link</button>
+        </form>
+        <div class="footer-link">
+            <span>Remembered your password? </span>
+            <a href="/login">Sign in</a>
+        </div>
+    """
+    return render_base_page(content)
+
+
+def render_reset_password_confirmation() -> str:
+    content = f"""
+        <h1>Reset Password</h1>
+        <p class="intro">If an account with that email exists, a password reset link has been sent.</p>
+        <div class="footer-link">
+            <span>Return to </span>
+            <a href="/login">Sign in</a>
+        </div>
+    """
+    return render_base_page(content)
+
+
+def render_new_password_form(token: str, message: str = "") -> str:
+    notice = f'<p class="notice" role="status">{escape(message)}</p>' if message else ""
+    content = f"""
+        <h1>Create New Password</h1>
+        <p class="intro">Please enter your new password below.</p>
+        {notice}
+        <form action="/reset-password-confirm" method="post">
+            <input type="hidden" name="token" value="{escape(token)}">
+            <label for="password">New Password (min 8 chars, letters & numbers)</label>
+            <input id="password" name="password" type="password" autocomplete="new-password" required>
+            <button type="submit">Update Password</button>
+        </form>
     """
     return render_base_page(content)
 
@@ -190,3 +259,86 @@ def dashboard(request: Request):
 async def logout(request: Request):
     request.session.clear()
     return RedirectResponse(url="/login", status_code=303)
+
+
+# --- Password Reset Flow ---
+
+@app.get("/reset-password", response_class=HTMLResponse)
+async def reset_password_form(message: str = ""):
+    return HTMLResponse(render_reset_password(message))
+
+
+
+@app.post("/reset-password", response_class=HTMLResponse)
+def handle_reset_password(email: str = Form(...)):
+    print(f"--- DEBUG: Received reset request for: '{email}' ---")
+    
+    user = db.get_user_by_email(email)
+    
+    if user:
+        token = secrets.token_urlsafe(32)
+        RESET_TOKENS[token] = {
+            "email": email,
+            "expires": datetime.now(timezone.utc) + timedelta(minutes=15)
+        }
+        
+        reset_link = f"http://localhost:8003/reset-password-confirm?token={token}"
+        print(f"--- DEBUG: Reset Link: {reset_link} ---")
+        
+        # Ensure API key is loaded
+        resend.api_key = os.getenv("RESEND_API_KEY")
+        if not resend.api_key:
+            print("--- ERROR: RESEND_API_KEY is None! Check frontend/login/.env ---")
+        
+        try:
+            params = {
+                "from": "Acme <onboarding@resend.dev>",
+                "to": [email],
+                "subject": "Code Kingdom Password Reset",
+                "html": f"<strong>Click the link bellow to reset your password:</strong> <br><br> <a href='{reset_link}'>{reset_link}</a>"
+            }
+            
+            email_response = resend.Emails.send(params)
+            print(f"--- SUCCESS: Email sent via Resend! ID: {email_response['id']} ---")
+        except Exception as e:
+            print(f"--- ERROR: Resend API failed. Details: {e} ---")
+            
+    else:
+        print(f"--- WARNING: No user found in DB for email {email}. Skipping email send. ---")
+
+    return HTMLResponse(render_reset_password_confirmation())
+
+
+@app.get("/reset-password-confirm", response_class=HTMLResponse)
+async def confirm_reset_password_get(token: str):
+    record = RESET_TOKENS.get(token)
+    
+    # Check if token exists and hasn't expired
+    if not record or datetime.now(timezone.utc) > record["expires"]:
+        return HTMLResponse(render_reset_password("Invalid or expired reset link. Please request a new one."))
+
+
+
+    return HTMLResponse(render_new_password_form(token))
+
+
+@app.post("/reset-password-confirm", response_class=HTMLResponse)
+def confirm_reset_password_post(token: str = Form(...), password: str = Form(...)):
+    record = RESET_TOKENS.get(token)
+    
+    if not record or datetime.now(timezone.utc) > record["expires"]:
+        return HTMLResponse(render_reset_password("Invalid or expired reset link."))
+
+    # Re-use existing validation logic
+    pwd_error = validate_password(password)
+    if pwd_error:
+        return HTMLResponse(render_new_password_form(token, pwd_error))
+
+    # Update password in DB
+    db.update_user_password(record["email"], password)
+    
+    # Invalidate token so it can't be reused
+    del RESET_TOKENS[token]
+
+    return HTMLResponse(render_login("Password successfully updated. Please sign in."))
+
