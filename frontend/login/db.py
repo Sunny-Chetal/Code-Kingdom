@@ -58,3 +58,27 @@ def verify_password(user, password: str) -> bool:
     if not user or not user.get("password"):
         return False
     return hasher.verify(password, user["password"])
+
+def get_user_by_email(email: str):
+    with psycopg.connect(DB_URI, row_factory=dict_row) as conn:
+        user = conn.execute(
+            "SELECT * FROM users.login WHERE email = %s",
+            (email,)
+        ).fetchone()
+        if user and not user.get("role"):
+            user["role"] = "Student"
+        return user
+
+def update_user_password(username: str, new_password: str) -> bool:
+    try:
+        with psycopg.connect(DB_URI) as conn:
+            conn.execute(
+                "UPDATE users.login SET password = %s WHERE username = %s",
+                (hasher.hash(new_password), username)
+            )
+        return True
+    except Exception as e:
+        print(f"Error updating password for {username}: {e}")
+        return False
+
+    
