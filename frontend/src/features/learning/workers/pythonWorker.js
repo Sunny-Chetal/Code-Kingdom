@@ -32,6 +32,7 @@ self.onmessage = async event => {
 		})
 
 		let isCorrect = null // Runs without challenge checks remain ungraded.
+		const feedback = [] // Focused hints for challenge checks that did not pass.
 
 		try {
 			await python.runPythonAsync(event.data.code, {globals})
@@ -96,26 +97,45 @@ check_structure(source, required_names)
 				} finally {
 					inspectionGlobals.destroy() // Releases the temporary Python inspection namespace.
 				}
-				// Compare each required variable with its expected value.
-				const variablesMatch = Object.entries(checks.variables).every(
-					([name, expectedValue]) => {
-						if (!globals.has(name)) {
-							return false
-						}
-
-						const actualValue = globals.get(name)
-
-						try {
-							return actualValue === expectedValue
-						} finally {
-							// Release Python objects returned through Pyodide.
-							actualValue?.destroy?.()
-						}
+				// Compare each required variable and keep names for focused feedback.
+				const incorrectVariables = []
+				for (const [name, expectedValue] of Object.entries(checks.variables ?? {})) {
+					if (!globals.has(name)) {
+						incorrectVariables.push(name)
+						continue
 					}
-				)
+
+					const actualValue = globals.get(name)
+					try {
+						if (actualValue !== expectedValue) {
+							incorrectVariables.push(name)
+						}
+					} finally {
+						// Release Python objects returned through Pyodide.
+						actualValue?.destroy?.()
+					}
+				}
+				const variablesMatch = incorrectVariables.length === 0
 
 				const outputMatches = output.join('\n').trim() === checks.output
 				isCorrect = structureMatches && variablesMatch && outputMatches // All three checks must pass.
+
+				if (!isCorrect) {
+					if (!structureMatches) {
+						const requiredNames = checks.printedVariables ?? []
+						feedback.push(
+							requiredNames.length
+								? `Make sure you assign and print ${requiredNames.join(', ')}.`
+								: 'Check that your code follows the challenge instructions.'
+						)
+					}
+					if (incorrectVariables.length) {
+						feedback.push(`Check the value stored in ${incorrectVariables.join(', ')}.`)
+					}
+					if (!outputMatches) {
+						feedback.push('Compare your output with the requested result, including spacing and capitalization.')
+					}
+				}
 			}
 		} finally {
 			globals.destroy() // Releases this run's Python variables, even after an error.
@@ -125,6 +145,7 @@ check_structure(source, required_names)
 			type: 'result',
 			output: output.join('\n'),
 			isCorrect,
+			feedback,
 		})
 	} catch (error) {
 		self.postMessage({

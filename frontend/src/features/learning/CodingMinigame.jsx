@@ -2,6 +2,8 @@ import {useCallback, useEffect, useRef, useState} from 'react'
 import Button from '../../components/ui/Button'
 import './LearningPanels.css'
 
+const EXECUTION_TIMEOUT_MESSAGE = 'Execution timed out after 10 seconds.'
+
 // Displays the Python editor, controls, and output; the parent supplies onClose.
 export default function CodingMinigame({
 	onClose,
@@ -19,6 +21,7 @@ export default function CodingMinigame({
 	const [runtimeStatus, setRuntimeStatus] = useState('Loading Python...') // Tracks the python worker
 	const [isSubmitting, setIsSubmitting] = useState(false) // Tracks an answer submission in progress.
 	const [submissionMessage, setSubmissionMessage] = useState('') // Displays submission feedback.
+	const [feedbackHints, setFeedbackHints] = useState([]) // Hints for checks that did not pass.
 
 	const startWorker = useCallback(() => { // Creates and configures the Python worker.
 		// Vite resolves the worker file; module mode supports its Pyodide imports.
@@ -52,6 +55,7 @@ export default function CodingMinigame({
 				setRuntimeStatus(`Python failed to load: ${event.data.message}`)
 			} else if (event.data.type === 'result') {
 				setOutput(event.data.output || '(No output)')
+				setFeedbackHints(event.data.feedback ?? [])
 
 				// Return the grading result to a waiting submission.
 				if (pendingGradeRef.current) {
@@ -127,11 +131,12 @@ export default function CodingMinigame({
 
 		setOutput('')
 		setSubmissionMessage('')
+		setFeedbackHints([])
 		setIsRunning(true)
 
 		// Reuse Stop after 10 seconds; restarting the worker leaves the editor text intact.
 		timeoutRef.current = setTimeout(() => {
-			stopCode('Execution timed out after 10 seconds.')
+			stopCode(EXECUTION_TIMEOUT_MESSAGE)
 		}, 10_000)
 
 		// Send the code and the current challenge's grading requirements.
@@ -184,6 +189,14 @@ export default function CodingMinigame({
 
 		setIsRunning(false)
 		setOutput(message)
+		if (message === EXECUTION_TIMEOUT_MESSAGE) {
+			setSubmissionMessage(
+				'Your code was stopped after 10 seconds. It may be stuck in an infinite loop.'
+			)
+			setFeedbackHints([
+				'Check whether each loop changes the value in its condition so it can eventually become false.',
+			])
+		}
 		setRuntimeStatus('Loading Python...')
 
 		startWorker()
@@ -200,6 +213,7 @@ export default function CodingMinigame({
 		onCodeChange(challenge.starterCode)
 		setOutput('')
 		setSubmissionMessage('')
+		setFeedbackHints([])
 	}
 
 	async function submitAnswer() { // Grades the current answer, then stores it.
@@ -230,10 +244,12 @@ export default function CodingMinigame({
 
 			try {
 				isCorrect = await gradeAnswer()
-			} catch {
-				setSubmissionMessage(
-					'Could not grade your answer. Check the output and try again.'
-				)
+			} catch (error) {
+				if (error.message !== EXECUTION_TIMEOUT_MESSAGE) {
+					setSubmissionMessage(
+						'Could not grade your answer. Check the output and try again.'
+					)
+				}
 				return
 			}
 
@@ -266,6 +282,7 @@ export default function CodingMinigame({
 	function updateCode(nextCode) { // Updates the parent's draft and clears old feedback.
 		onCodeChange(nextCode)
 		setSubmissionMessage('')
+		setFeedbackHints([])
 	}
 
 	function handleCodeKeyDown(event) { // Inserts a literal tab at the current selection.
@@ -354,9 +371,17 @@ export default function CodingMinigame({
 				</Button>
 			</div>
 
-			<p role="status" className="mt-2 text-sm text-slate-300">
-				{submissionMessage}
-			</p>
+			<div role="status" className="mt-2 text-sm text-slate-300">
+				<p>{submissionMessage}</p>
+				{feedbackHints.length > 0 && (
+					<div className="mt-2 rounded border border-amber-700 bg-amber-950/40 p-3">
+						<p className="font-semibold text-amber-200">Try these next:</p>
+						<ul className="mt-1 list-disc space-y-1 pl-5 text-amber-100">
+							{feedbackHints.map(hint => <li key={hint}>{hint}</li>)}
+						</ul>
+					</div>
+				)}
+			</div>
 
 			<h3 className="mb-2 mt-4 font-semibold">Output</h3>
 			<pre
