@@ -12,7 +12,11 @@ ALTER TABLE users.login
 
 CREATE TABLE IF NOT EXISTS users.stats(
     username VARCHAR(255) PRIMARY KEY,
-    health INT DEFAULT 100,
-    power INT DEFAULT 100,
+    gold INT DEFAULT 0,
+    gems INT DEFAULT 0,
+    wood INT DEFAULT 0,
+    buildings VARCHAR(40)[],
+    minigames VARCHAR(40)[],
+    tutorials VARCHAR(40)[],
     FOREIGN KEY (username) REFERENCES users.login(username)
 );
