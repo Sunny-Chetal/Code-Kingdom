@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS users.stats(
     gold INT DEFAULT 0,
     gems INT DEFAULT 0,
     wood INT DEFAULT 0,
-    buildings VARCHAR(40)[],
-    minigames VARCHAR(40)[],
-    tutorials VARCHAR(40)[],
+    buildings VARCHAR(40)[] DEFAULT '{}',
+    minigames VARCHAR(40)[] DEFAULT '{}',
+    tutorials VARCHAR(40)[] DEFAULT '{}',
     FOREIGN KEY (username) REFERENCES users.login(username)
 );
