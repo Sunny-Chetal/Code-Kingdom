@@ -2,6 +2,28 @@ import {useState} from 'react'
 import Button from '../../components/ui/Button'
 import './LearningPanels.css'
 
+export function TutorialReplayList({tutorials, onReplay}) {
+	if (tutorials.length === 0) {
+		return null
+	}
+
+	return (
+		<nav className="mt-6 border-t-2 border-amber-700 pt-4" aria-label="Completed tutorials">
+			<h3 className="mb-2 text-lg font-semibold">Replay a completed tutorial</h3>
+			<p className="mb-3">Choose a lesson to review it again.</p>
+			<ul className="flex flex-wrap gap-2">
+				{tutorials.map(completedTutorial => (
+					<li key={completedTutorial.id}>
+						<Button onClick={() => onReplay(completedTutorial.id)}>
+							{completedTutorial.title}
+						</Button>
+					</li>
+				))}
+			</ul>
+		</nav>
+	)
+}
+
 // Displays tutorial steps; the parent supplies completion IDs and the completion callback.
 export default function Tutorial({
 	tutorial,
@@ -9,6 +31,10 @@ export default function Tutorial({
 	onComplete,
 	onStartChallenge,
 	hasChallengeDraft,
+	completedTutorials = [],
+	onReplayTutorial,
+	isReplay = false,
+	onReturnToCurrent,
 }) {
 	const [currentStep, setCurrentStep] = useState(0) // Index of the displayed step.
 	const lesson = tutorial.steps[currentStep] // Content for the selected step.
@@ -18,7 +44,7 @@ export default function Tutorial({
 	// Navigation changes currentStep; the completion button calls onComplete with this tutorial’s ID.
 	return (
 		<section className="learning-panel">
-			<h2 className="mb-4 text-2xl font-bold">Programming Tutorial</h2>
+			<h2 className="mb-4 text-2xl font-bold">{isReplay ? 'Replay Tutorial' : 'Programming Tutorial'}</h2>
 			<h3 className="mb-2 text-xl font-semibold">{lesson.title}</h3>
 			<p className="mb-4 text-slate-300">{lesson.explanation}</p>
 
@@ -46,7 +72,12 @@ export default function Tutorial({
 				</Button>
 			</div>
 
-			{isCompleted ? (
+			{isReplay ? (
+				<div className="mt-4">
+					<p role="status" className="mb-3">Reviewing {tutorial.title}.</p>
+					<Button onClick={onReturnToCurrent}>Return to current learning</Button>
+				</div>
+			) : isCompleted ? (
 				<div className="mt-4">
 					<p className="mb-3">
 						Tutorial completed
@@ -65,6 +96,8 @@ export default function Tutorial({
 					</div>
 				)
 			)}
+
+			{!isReplay && <TutorialReplayList tutorials={completedTutorials} onReplay={onReplayTutorial} />}
 		</section>
 	)
 }

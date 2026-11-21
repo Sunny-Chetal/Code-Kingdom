@@ -1,5 +1,5 @@
 import {useState} from 'react'
-import Tutorial from './Tutorial' // Imports the logic for tutorials
+import Tutorial, {TutorialReplayList} from './Tutorial' // Imports the logic for tutorials
 import tutorials from './data/tutorial' // Tutorials in progression order.import Button from './components/Button'
 import CodingMinigame from './CodingMinigame'
 import LearningWindow from './LearningWindow'
@@ -12,11 +12,18 @@ export default function LearningExperience({isOpen, onClose}) {
 	const [completedTutorialIds, setCompletedTutorialIds] = useState([])
 	// Tracks challenges passed during this page session.
 	const [passedChallengeIds, setPassedChallengeIds] = useState([])
-	const tutorialData = tutorials.find(tutorial => !passedChallengeIds.includes(tutorial.challenge.id))
-	// A missing tutorial means every available challenge has been passed.
-	const allTutorialsCompleted = tutorialData === undefined
 	// Keeps each challenge's editor text when switching between panels.
 	const [challengeDrafts, setChallengeDrafts] = useState({})
+	// Tracks a previously completed lesson being reviewed.
+	const [replayTutorialId, setReplayTutorialId] = useState(null)
+	const currentTutorial = tutorials.find(tutorial => !passedChallengeIds.includes(tutorial.challenge.id))
+	const replayTutorial = tutorials.find(tutorial => tutorial.id === replayTutorialId)
+	const isReplayingTutorial = replayTutorial !== undefined
+	// A missing current tutorial means every available challenge has been passed.
+	const allTutorialsCompleted = currentTutorial === undefined
+	const completedTutorials = tutorials.filter(tutorial =>
+		completedTutorialIds.includes(tutorial.id) && tutorial.id !== currentTutorial?.id
+	)
 
 	// Function for recording the completion
 	function completeTutorial(tutorialId) {
@@ -32,15 +39,15 @@ export default function LearningExperience({isOpen, onClose}) {
 		// Store drafts by challenge ID so different challenges keep separate code.
 		setChallengeDrafts(previousDrafts => ({
 			...previousDrafts,
-			[tutorialData.challenge.id]: nextCode,
+			[currentTutorial.challenge.id]: nextCode,
 		}))
 	}
 
 	function startChallenge() {
 		// Initialize a draft on the first visit; preserve it on later visits.
 		updateChallengeCode(
-			challengeDrafts[tutorialData.challenge.id]
-			?? tutorialData.challenge.starterCode
+			challengeDrafts[currentTutorial.challenge.id]
+			?? currentTutorial.challenge.starterCode
 		)
 
 		setIsMinigameOpen(true)
@@ -60,58 +67,60 @@ export default function LearningExperience({isOpen, onClose}) {
 	}
 
 	async function submitAnswer(code) { // Sends the answer with the current challenge's ID.
-		return submitChallengeAnswer(tutorialData.challenge.id, code)
+		return submitChallengeAnswer(currentTutorial.challenge.id, code)
 	}
 
 	return (
-		allTutorialsCompleted ? (
-			<LearningWindow
-				isOpen={isOpen}
-				onClose={onClose}
-				title="Learning completed"
-			>
+		<LearningWindow
+			isOpen={isOpen}
+			onClose={onClose}
+			title={replayTutorial?.title ?? currentTutorial?.title ?? 'Learning completed'}
+		>
+			{/* Keep the active lesson mounted while a completed one is being replayed. */}
+			{currentTutorial && (
+				<div hidden={isMinigameOpen || isReplayingTutorial}>
+					<Tutorial
+						key={currentTutorial.id}
+						tutorial={currentTutorial}
+						completedTutorialIds={completedTutorialIds}
+						onComplete={completeTutorial}
+						onStartChallenge={startChallenge}
+						hasChallengeDraft={challengeDrafts[currentTutorial.challenge.id] !== undefined}
+						completedTutorials={completedTutorials}
+						onReplayTutorial={setReplayTutorialId}
+					/>
+				</div>
+			)}
+
+			{replayTutorial && (
+				<Tutorial
+					key={replayTutorial.id}
+					tutorial={replayTutorial}
+					completedTutorialIds={completedTutorialIds}
+					isReplay
+					onReturnToCurrent={() => setReplayTutorialId(null)}
+				/>
+			)}
+
+			{allTutorialsCompleted && !replayTutorial && (
 				<section className="learning-panel">
 					<p role="status">
 						You have completed all available tutorials and challenges!
 					</p>
+					<TutorialReplayList tutorials={completedTutorials} onReplay={setReplayTutorialId} />
 				</section>
-			</LearningWindow>
-		) : (
-			<>
-				<LearningWindow
-					isOpen={isOpen}
-					onClose={onClose}
-					title={tutorialData.title}
-				>
-					{/* Hide without unmounting so the tutorial keeps its current step. */}
-					<div hidden={isMinigameOpen}>
-						<Tutorial
-							key={tutorialData.id}
-							tutorial={tutorialData}
-							completedTutorialIds={completedTutorialIds}
-							onComplete={completeTutorial}
-								onStartChallenge={startChallenge}
-								hasChallengeDraft={
-									challengeDrafts[tutorialData.challenge.id] !== undefined
-								}
-						/>
-					</div>
+			)}
 
-						{isMinigameOpen && (
-							<CodingMinigame
-								challenge={tutorialData.challenge}
-								code={
-									challengeDrafts[tutorialData.challenge.id]
-									?? tutorialData.challenge.starterCode
-								}
-								onCodeChange={updateChallengeCode}
-								onSubmit={submitAnswer}
-								onPassed={completeChallenge}
-								onClose={() => setIsMinigameOpen(false)}
-							/>
-						)}
-				</LearningWindow>
-			</>
-		)
+			{currentTutorial && isMinigameOpen && (
+				<CodingMinigame
+					challenge={currentTutorial.challenge}
+					code={challengeDrafts[currentTutorial.challenge.id] ?? currentTutorial.challenge.starterCode}
+					onCodeChange={updateChallengeCode}
+					onSubmit={submitAnswer}
+					onPassed={completeChallenge}
+					onClose={() => setIsMinigameOpen(false)}
+				/>
+			)}
+		</LearningWindow>
 	)
 }
