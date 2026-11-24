@@ -1,38 +1,61 @@
-import {useState} from 'react'
+import {useEffect, useState} from 'react'
 import Tutorial, {TutorialReplayList} from './Tutorial' // Imports the logic for tutorials
 import tutorials from './data/tutorial' // Tutorials in progression order.import Button from './components/Button'
 import CodingMinigame from './CodingMinigame'
 import LearningWindow from './LearningWindow'
-import {submitChallengeAnswer} from '../../services/api'
+import {getTutorialProgress, markTutorialCompleted, submitChallengeAnswer} from '../../services/api'
 
 export default function LearningExperience({isOpen, onClose}) {
 	// Tracks whether the minigame panel is visible.
 	const [isMinigameOpen, setIsMinigameOpen] = useState(false)
 	// State variable to track completed tutorials
 	const [completedTutorialIds, setCompletedTutorialIds] = useState([])
+	const [progressError, setProgressError] = useState('')
 	// Tracks challenges passed during this page session.
 	const [passedChallengeIds, setPassedChallengeIds] = useState([])
 	// Keeps each challenge's editor text when switching between panels.
 	const [challengeDrafts, setChallengeDrafts] = useState({})
 	// Tracks a previously completed lesson being reviewed.
 	const [replayTutorialId, setReplayTutorialId] = useState(null)
+	useEffect(() => {
+		let isMounted = true
+		getTutorialProgress()
+			.then(progress => {
+				if (isMounted) {
+					setCompletedTutorialIds(previousIds =>
+						[...new Set([...previousIds, ...progress.completed_tutorial_ids])]
+					)
+				}
+			})
+			.catch(error => {
+				if (isMounted) {
+					setProgressError('Tutorial progress could not be loaded: ' + error.message)
+				}
+			})
+		return () => {
+			isMounted = false
+		}
+	}, [])
 	const currentTutorial = tutorials.find(tutorial => !passedChallengeIds.includes(tutorial.challenge.id))
 	const replayTutorial = tutorials.find(tutorial => tutorial.id === replayTutorialId)
 	const isReplayingTutorial = replayTutorial !== undefined
 	// A missing current tutorial means every available challenge has been passed.
 	const allTutorialsCompleted = currentTutorial === undefined
-	const completedTutorials = tutorials.filter(tutorial =>
-		completedTutorialIds.includes(tutorial.id) && tutorial.id !== currentTutorial?.id
-	)
+	// Keep saved lessons replayable, including the current lesson after a reload.
+	const completedTutorials = tutorials.filter(tutorial => completedTutorialIds.includes(tutorial.id))
 
 	// Function for recording the completion
-	function completeTutorial(tutorialId) {
-		setCompletedTutorialIds(previousIds => {
-			if (previousIds.includes(tutorialId)) {
-				return previousIds
-			}
-			return [...previousIds, tutorialId]
-		})
+	async function completeTutorial(tutorialId) {
+		// Save the completion before showing it as complete in the tutorial list.
+		setProgressError('')
+		try {
+			const progress = await markTutorialCompleted(tutorialId)
+			setCompletedTutorialIds(previousIds =>
+				[...new Set([...previousIds, ...progress.completed_tutorial_ids])]
+			)
+		} catch (error) {
+			setProgressError('Tutorial progress could not be saved: ' + error.message)
+		}
 	}
 
 	function updateChallengeCode(nextCode) {
@@ -76,6 +99,7 @@ export default function LearningExperience({isOpen, onClose}) {
 			onClose={onClose}
 			title={replayTutorial?.title ?? currentTutorial?.title ?? 'Learning completed'}
 		>
+			{progressError && <p className="mb-3 text-red-300" role="alert">{progressError}</p>}
 			{/* Keep the active lesson mounted while a completed one is being replayed. */}
 			{currentTutorial && (
 				<div hidden={isMinigameOpen || isReplayingTutorial}>

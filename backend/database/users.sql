@@ -17,6 +17,10 @@ CREATE TABLE IF NOT EXISTS users.stats(
     wood INT DEFAULT 0,
     buildings VARCHAR(40)[] DEFAULT '{}',
     minigames VARCHAR(40)[] DEFAULT '{}',
-    tutorials VARCHAR(40)[] DEFAULT '{}',
+    tutorials VARCHAR(40)[] NOT NULL DEFAULT '{}',
     FOREIGN KEY (username) REFERENCES users.login(username)
 );
+
+-- Adds tutorial completion storage to databases created before this field existed.
+ALTER TABLE users.stats
+    ADD COLUMN IF NOT EXISTS tutorials VARCHAR(40)[] NOT NULL DEFAULT '{}';

@@ -37,8 +37,14 @@ def init_db():
                 username VARCHAR(255) PRIMARY KEY,
                 health INT DEFAULT 100,
                 power INT DEFAULT 100,
+                tutorials VARCHAR(40)[] NOT NULL DEFAULT '{}',
                 FOREIGN KEY (username) REFERENCES users.login(username)
             );
+        """)
+        # Adds replay progress to databases created before tutorial completion was persisted.
+        conn.execute("""
+            ALTER TABLE users.stats
+                ADD COLUMN IF NOT EXISTS tutorials VARCHAR(40)[] NOT NULL DEFAULT '{}';
         """)
 
 def get_user_by_username(username: str):
@@ -65,6 +71,33 @@ def create_user(username: str, password: str, email: str) -> bool:
         return True
     except psycopg.errors.UniqueViolation:
         return False
+
+def get_completed_tutorial_ids(username: str) -> list[str]:
+    with psycopg.connect(DB_URI) as conn:
+        row = conn.execute(
+            "SELECT COALESCE(tutorials, ARRAY[]::VARCHAR(40)[]) FROM users.stats WHERE username = %s",
+            (username,)
+        ).fetchone()
+        return row[0] if row else []
+
+def mark_tutorial_completed(username: str, tutorial_id: str) -> list[str]:
+    # Updates the account's completion array without adding duplicate tutorial IDs.
+    with psycopg.connect(DB_URI) as conn:
+        row = conn.execute(
+            """
+            INSERT INTO users.stats AS existing_stats (username, tutorials)
+            VALUES (%s, ARRAY[%s]::VARCHAR(40)[])
+            ON CONFLICT (username) DO UPDATE
+            SET tutorials = CASE
+                WHEN EXCLUDED.tutorials[1] = ANY(COALESCE(existing_stats.tutorials, ARRAY[]::VARCHAR(40)[]))
+                    THEN COALESCE(existing_stats.tutorials, ARRAY[]::VARCHAR(40)[])
+                ELSE array_append(COALESCE(existing_stats.tutorials, ARRAY[]::VARCHAR(40)[]), EXCLUDED.tutorials[1])
+            END
+            RETURNING COALESCE(tutorials, ARRAY[]::VARCHAR(40)[])
+            """,
+            (username, tutorial_id)
+        ).fetchone()
+        return row[0] if row else []
 
 def verify_password(user, password: str) -> bool:
     if not user or not user.get("password"):

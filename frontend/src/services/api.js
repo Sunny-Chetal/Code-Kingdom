@@ -1,5 +1,9 @@
 const API_BASE_URL = 'http://127.0.0.1:8000/api'
 
+function getLoginApiBaseUrl() {
+    return window.location.protocol + '//' + window.location.hostname + ':8002/api'
+}
+
 export async function getBackendHealth(signal) {
     const response = await fetch(`${API_BASE_URL}/health`, {signal})
     if (!response.ok) {
@@ -18,6 +22,35 @@ export async function submitChallengeAnswer(challengeId, code) {
         throw new Error('Answer submission failed')
     }
     return response.json()
+}
+
+// ---------- Tutorial completion progress ----------
+
+async function tutorialProgressRequest(options = {}) {
+    const response = await fetch(getLoginApiBaseUrl() + '/tutorial-progress', {
+        credentials: 'include',
+        ...options,
+    })
+    if (!response.ok) {
+        const body = await response.json().catch(() => ({}))
+        const detail = Array.isArray(body.detail)
+            ? body.detail.map(problem => problem.loc.at(-1) + ': ' + problem.msg).join(', ')
+            : body.detail
+        throw new Error(detail || 'HTTP ' + response.status)
+    }
+    return response.json()
+}
+
+export function getTutorialProgress() {
+    return tutorialProgressRequest()
+}
+
+export function markTutorialCompleted(tutorialId) {
+    return tutorialProgressRequest({
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({tutorial_id: tutorialId}),
+    })
 }
 
 // ---------- Coding questions (administrator question management) ----------
