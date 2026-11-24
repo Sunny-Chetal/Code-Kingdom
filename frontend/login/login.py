@@ -9,8 +9,10 @@ from email.message import EmailMessage
 import ssl
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
+from pydantic import BaseModel, Field
 from starlette.middleware.sessions import SessionMiddleware
 
 
@@ -24,7 +26,21 @@ resend.api_key = os.getenv("RESEND_API_KEY")
 
 
 
+class TutorialCompletionRequest(BaseModel):
+    tutorial_id: str = Field(min_length=1, max_length=40)
+
+
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "PUT"],
+    allow_headers=["Content-Type"],
+)
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SESSION_SECRET") or "dev-only-change-me",
@@ -35,7 +51,7 @@ app.add_middleware(
 db.init_db()
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]+$")
-GAME_URL = os.getenv("GAME_DASHBOARD_URL", "http://localhost:5173")
+GAME_URL = os.getenv("GAME_DASHBOARD_URL")
 
 # Temporary in-memory store for tokens. 
 # For production, move this to your PostgreSQL database to persist across server restarts.
@@ -239,13 +255,17 @@ def dashboard(request: Request):
         request.session.clear()
         return RedirectResponse(url="/login", status_code=303)
 
+    # Match the game hostname to the portal so the login session is sent with progress requests.
+    game_url = GAME_URL or f"{request.url.scheme}://{request.url.hostname}:5173"
+    game_url = escape(game_url, quote=True)
+
     content = f"""
         <h1>Kingdom Dashboard</h1>
         <p class="intro">Welcome back, <strong>{escape(user["username"])}</strong>!</p>
         <p><strong>Role:</strong> {escape(user["role"])}</p>
         
         <div style="margin: 28px 0 16px;">
-            <a class="btn" href="{GAME_URL}">Enter Code Kingdom Game &rarr;</a>
+            <a class="btn" href="{game_url}">Enter Code Kingdom Game &rarr;</a>
         </div>
 
         <div class="footer-link">
@@ -262,6 +282,27 @@ async def logout(request: Request):
 
 
 # --- Password Reset Flow ---
+
+def require_signed_in_username(request: Request) -> str:
+    # Tutorial progress belongs to the account stored in the signed session cookie.
+    username = request.session.get("username")
+    if not username:
+        raise HTTPException(status_code=401, detail="Sign in to save tutorial progress.")
+    return username
+
+
+@app.get("/api/tutorial-progress")
+def get_tutorial_progress(request: Request):
+    username = require_signed_in_username(request)
+    return {"completed_tutorial_ids": db.get_completed_tutorial_ids(username)}
+
+
+@app.put("/api/tutorial-progress")
+def save_tutorial_progress(request: Request, completion: TutorialCompletionRequest):
+    username = require_signed_in_username(request)
+    completed_ids = db.mark_tutorial_completed(username, completion.tutorial_id)
+    return {"completed_tutorial_ids": completed_ids}
+
 
 @app.get("/reset-password", response_class=HTMLResponse)
 async def reset_password_form(message: str = ""):
