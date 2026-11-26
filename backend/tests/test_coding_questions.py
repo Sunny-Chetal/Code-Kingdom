@@ -101,3 +101,54 @@ def test_reward_follows_difficulty():  # CK-20
 
         edited = client.patch(f"/coding-questions/{easy_id}", json={"difficulty": "medium"})
         assert edited.json()["reward"] == 50  # Changing difficulty changes the reward.
+
+
+def test_assigns_progression_tiers():  # Progression tiers
+    with client:
+        created = client.post("/coding-questions", json={**QUESTION, "slug": "test-no-tier"})
+        assert created.json()["tier"] == 1  # Questions start in tier 1 by default.
+
+        tiered = client.post("/coding-questions", json={**QUESTION, "slug": "test-tier-three", "tier": 3})
+        assert tiered.status_code == 201
+        assert tiered.json()["tier"] == 3
+
+        edited = client.patch(f"/coding-questions/{tiered.json()['id']}", json={"tier": 2})
+        assert edited.json()["tier"] == 2
+        assert edited.json()["title"] == QUESTION["title"]
+
+        assert client.post("/coding-questions", json={**QUESTION, "slug": "test-tier-zero", "tier": 0}).status_code == 422
+
+
+def test_lists_questions_in_tier_order():  # Progression tiers
+    later_id = store_question(slug="test-later", tier=2)
+    first_id = store_question(slug="test-first", tier=1)
+    with client:
+        ids = [q["id"] for q in client.get("/coding-questions").json()]
+        assert ids.index(first_id) < ids.index(later_id)
+
+
+
+def test_works_out_the_students_level():  # Display challenges by progression level
+    from types import SimpleNamespace
+    from services.core.progression import current_progression
+
+    one_a = SimpleNamespace(slug="one-a", tier=1)
+    one_b = SimpleNamespace(slug="one-b", tier=1)
+    two = SimpleNamespace(slug="two", tier=2)
+    questions = [one_a, one_b, two]
+
+    assert current_progression(questions, []) == (1, [one_a, one_b], False)
+    assert current_progression(questions, ["one-a"]) == (1, [one_a, one_b], False)  # Tier 1 not finished yet.
+    assert current_progression(questions, ["one-a", "one-b"]) == (2, [two], False)
+    assert current_progression(questions, ["one-a", "one-b", "two"]) == (2, [], True)
+    assert current_progression([], []) == (1, [], True)
+
+
+def test_progression_endpoint_returns_the_current_level():  # Display challenges by progression level
+    store_question(slug="test-level-one", tier=1)
+    with client:
+        response = client.get("/coding-questions/progression")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["level"] == 1
+        assert "test-level-one" in [q["slug"] for q in body["questions"]]

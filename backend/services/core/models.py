@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, String, Text, func
+from sqlalchemy import JSON, DateTime, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -40,6 +40,8 @@ class CodingQuestionRecord(Base):  # Stores the coding questions administrators 
     starter_code: Mapped[str] = mapped_column(Text, nullable=False, default="")  # Code pre-filled in the editor.
     checks: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)  # Rules used to grade an answer.
     difficulty: Mapped[str] = mapped_column(String(20), nullable=False, default="easy")  # easy, medium or hard.
+    # Progression tier: students unlock tier 1 first, then tier 2, and so on.
+    tier: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
     # PostgreSQL supplies the timestamps; updated_at changes whenever the question is edited.
     created_at: Mapped[datetime] = mapped_column(

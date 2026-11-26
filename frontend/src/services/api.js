@@ -141,6 +141,13 @@ export function getCodingQuestions() {
 	return questionRequest('')
 }
 
+// Questions for the student's current tier, worked out from the challenges they have completed.
+export function getProgressionQuestions(completedIds) {
+	const params = new URLSearchParams()
+	completedIds.forEach(id => params.append('completed', id))
+	return questionRequest(`/progression?${params}`)
+}
+
 export function createCodingQuestion(question) {
 	return questionRequest('', {method: 'POST', body: JSON.stringify(question)})
 }

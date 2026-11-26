@@ -1,15 +1,17 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Query, Response
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from .db import Base, engine, SessionLocal
 from .models import ChallengeSubmissionRecord, CodingQuestionRecord
+from .progression import current_progression
 from .schemas import (
     ChallengeSubmission,
     CodingQuestionCreate,
     CodingQuestionRead,
     CodingQuestionUpdate,
+    ProgressionRead,
 )
 
 
@@ -17,6 +19,11 @@ from .schemas import (
 async def lifespan(app: FastAPI):  # Creates any missing tables on startup (until the team sets up Alembic).
     try:
         Base.metadata.create_all(bind=engine)
+        # create_all does not add new columns to existing tables, so add the tier column here.
+        with engine.begin() as conn:
+            conn.execute(text(
+                "ALTER TABLE coding_questions ADD COLUMN IF NOT EXISTS tier INTEGER NOT NULL DEFAULT 1"
+            ))
     except SQLAlchemyError:
         pass  # The health check reports the database as unavailable instead of crashing.
     yield
@@ -78,13 +85,31 @@ def find_question(session, question_id: int) -> CodingQuestionRecord:  # Loads a
 
 
 @app.get("/coding-questions", response_model=list[CodingQuestionRead])
-def list_questions():  # Returns every stored question, oldest first.
+def list_questions():  # Returns every stored question in progression order (tier, then oldest first).
     try:
         with SessionLocal() as session:
             questions = session.scalars(
-                select(CodingQuestionRecord).order_by(CodingQuestionRecord.id)
+                select(CodingQuestionRecord).order_by(CodingQuestionRecord.tier, CodingQuestionRecord.id)
             ).all()
             return [CodingQuestionRead.model_validate(question) for question in questions]
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="Could not load the coding questions")
+
+
+# Declared before /coding-questions/{question_id} so "progression" is not read as a question ID.
+@app.get("/coding-questions/progression", response_model=ProgressionRead)
+def get_progression(completed: list[str] = Query(default=[])):  # Questions for the student's current tier.
+    try:
+        with SessionLocal() as session:
+            questions = session.scalars(
+                select(CodingQuestionRecord).order_by(CodingQuestionRecord.tier, CodingQuestionRecord.id)
+            ).all()
+            level, level_questions, all_completed = current_progression(questions, completed)
+            return ProgressionRead(
+                level=level,
+                all_completed=all_completed,
+                questions=[CodingQuestionRead.model_validate(question) for question in level_questions],
+            )
     except SQLAlchemyError:
         raise HTTPException(status_code=503, detail="Could not load the coding questions")
 

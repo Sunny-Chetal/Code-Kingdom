@@ -104,6 +104,7 @@ export default function AdminQuestions() {
 									<th className="px-4 py-3">#</th>
 									<th className="px-4 py-3">Title</th>
 									<th className="px-4 py-3">Slug</th>
+									<th className="px-4 py-3">Tier</th>
 									<th className="px-4 py-3">Difficulty</th>
 									<th className="px-4 py-3">Reward</th>
 									<th className="px-4 py-3 text-right">Actions</th>
@@ -118,6 +119,7 @@ export default function AdminQuestions() {
 											<div className="text-slate-400">{question.description}</div>
 										</td>
 										<td className="px-4 py-3 font-mono text-slate-300">{question.slug}</td>
+										<td className="px-4 py-3">{question.tier}</td>
 										<td className="px-4 py-3 capitalize">{question.difficulty}</td>
 										<td className="px-4 py-3">{question.reward} gold</td>
 										<td className="space-x-2 whitespace-nowrap px-4 py-3 text-right">

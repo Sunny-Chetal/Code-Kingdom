@@ -20,6 +20,7 @@ class CodingQuestionCreate(BaseModel):
     starter_code: str = ""
     checks: dict[str, Any] = Field(default_factory=dict)
     difficulty: Difficulty = "easy"
+    tier: int = Field(default=1, ge=1, le=100)  # Progression order: tier 1 comes first.
 
 
 # Every field is optional when editing, so only the changed fields need to be sent.
@@ -30,6 +31,7 @@ class CodingQuestionUpdate(BaseModel):
     starter_code: str | None = None
     checks: dict[str, Any] | None = None
     difficulty: Difficulty | None = None
+    tier: int | None = Field(default=None, ge=1, le=100)
 
 
 # What the API sends back for a stored question.
@@ -40,3 +42,10 @@ class CodingQuestionRead(CodingQuestionCreate):
     reward: int  # Gold earned for solving the question.
     created_at: datetime
     updated_at: datetime
+
+
+# The questions a student sees at their current progression level.
+class ProgressionRead(BaseModel):
+    level: int  # The tier the student is currently working through.
+    all_completed: bool  # True when every question in every tier is completed.
+    questions: list[CodingQuestionRead]
