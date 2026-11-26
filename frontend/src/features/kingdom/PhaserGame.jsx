@@ -1,8 +1,10 @@
 import {useEffect, useRef} from 'react'
 import Phaser from 'phaser'
 import {gameConfig} from './gameConfig'
+import {toKingdomSceneState} from './savedKingdom'
 
-export default function PhaserGame() {
+// savedKingdom is the progress loaded at login: {resources, buildings}.
+export default function PhaserGame({savedKingdom}) {
 	const container = useRef(null)
 
 	useEffect(() => {
@@ -10,6 +12,11 @@ export default function PhaserGame() {
 			...gameConfig,
 			parent: container.current
 		})
+		// KingdomScene reads these from the registry when it starts, so saved buildings appear right away.
+		if (savedKingdom) {
+			game.registry.set('kingdomState', toKingdomSceneState(savedKingdom))
+			game.registry.set('kingdomResources', savedKingdom.resources)
+		}
 
 		function syncKeyboardFocus() {
 			if (!game.input?.keyboard) return
@@ -32,7 +39,7 @@ export default function PhaserGame() {
 			game.events.off(Phaser.Core.Events.READY, syncKeyboardFocus)
 			game.destroy(true)
 		}
-	}, [])
+	}, [savedKingdom])
 
 	return (
 		<div ref={container} style={{width: '100%', height: '100%'}}/>
