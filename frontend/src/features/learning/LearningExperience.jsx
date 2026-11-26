@@ -2,9 +2,10 @@ import {useEffect, useState} from 'react'
 import Tutorial, {TutorialReplayList} from './Tutorial' // Imports the logic for tutorials
 import tutorials from './data/tutorial' // Tutorials in progression order.import Button from './components/Button'
 import CodingMinigame from './CodingMinigame'
+import LevelChallenges from './LevelChallenges'
 import LearningWindow from './LearningWindow'
 import {
-	getMinigameProgress, getTutorialProgress, markMinigameCompleted,
+	getMinigameProgress, getProgressionQuestions, getTutorialProgress, markMinigameCompleted,
 	markTutorialCompleted, submitChallengeAnswer
 } from '../../services/api'
 
@@ -20,6 +21,12 @@ export default function LearningExperience({isOpen, onClose}) {
 	const [challengeDrafts, setChallengeDrafts] = useState({})
 	// Tracks a previously completed lesson being reviewed.
 	const [replayTutorialId, setReplayTutorialId] = useState(null)
+	// Tracks whether saved challenge progress has finished loading.
+	const [isProgressLoaded, setIsProgressLoaded] = useState(false)
+	// Coding questions for the student's current level: {level, all_completed, questions}.
+	const [progression, setProgression] = useState(null)
+	// A level challenge the student started; null means the current tutorial's challenge.
+	const [levelChallenge, setLevelChallenge] = useState(null)
 	useEffect(() => {
 		let isMounted = true
 		getTutorialProgress()
@@ -48,6 +55,11 @@ export default function LearningExperience({isOpen, onClose}) {
 					setProgressError('Minigame progress could not be loaded: ' + error.message)
 				}
 			})
+			.finally(() => {
+				if (isMounted) {
+					setIsProgressLoaded(true)
+				}
+			})
 		return () => {
 			isMounted = false
 		}
@@ -59,6 +71,31 @@ export default function LearningExperience({isOpen, onClose}) {
 	const allTutorialsCompleted = currentTutorial === undefined
 	// Keep saved lessons replayable, including the current lesson after a reload.
 	const completedTutorials = tutorials.filter(tutorial => completedTutorialIds.includes(tutorial.id))
+	// The challenge in the minigame: a level challenge if one was started, otherwise the tutorial's.
+	const activeChallenge = levelChallenge ?? currentTutorial?.challenge
+
+	// Once the tutorials are done, load the questions for the student's level.
+	// Runs again after each passed challenge, so finishing a level unlocks the next one.
+	useEffect(() => {
+		if (!isProgressLoaded || !allTutorialsCompleted) {
+			return
+		}
+		let isMounted = true
+		getProgressionQuestions(passedChallengeIds)
+			.then(loaded => {
+				if (isMounted) {
+					setProgression(loaded)
+				}
+			})
+			.catch(error => {
+				if (isMounted) {
+					setProgressError('Level challenges could not be loaded: ' + error.message)
+				}
+			})
+		return () => {
+			isMounted = false
+		}
+	}, [isProgressLoaded, allTutorialsCompleted, passedChallengeIds])
 
 	// Function for recording the completion
 	async function completeTutorial(tutorialId) {
@@ -78,11 +115,12 @@ export default function LearningExperience({isOpen, onClose}) {
 		// Store drafts by challenge ID so different challenges keep separate code.
 		setChallengeDrafts(previousDrafts => ({
 			...previousDrafts,
-			[currentTutorial.challenge.id]: nextCode,
+			[activeChallenge.id]: nextCode,
 		}))
 	}
 
 	function startChallenge() {
+		setLevelChallenge(null) // Use the current tutorial's challenge.
 		// Initialize a draft on the first visit; preserve it on later visits.
 		updateChallengeCode(
 			challengeDrafts[currentTutorial.challenge.id]
@@ -90,6 +128,28 @@ export default function LearningExperience({isOpen, onClose}) {
 		)
 
 		setIsMinigameOpen(true)
+	}
+
+	function startLevelChallenge(question) {
+		// Database questions use different field names, so match the shape CodingMinigame expects.
+		const challenge = {
+			id: question.slug,
+			title: question.title,
+			description: question.description,
+			starterCode: question.starter_code,
+			checks: question.checks,
+		}
+		setLevelChallenge(challenge)
+		setChallengeDrafts(previousDrafts => ({
+			...previousDrafts,
+			[challenge.id]: previousDrafts[challenge.id] ?? challenge.starterCode,
+		}))
+		setIsMinigameOpen(true)
+	}
+
+	function closeChallenge() {
+		setIsMinigameOpen(false)
+		setLevelChallenge(null)
 	}
 
 	function completeChallenge(challengeId) {
@@ -104,11 +164,11 @@ export default function LearningExperience({isOpen, onClose}) {
 		// Send the current challenge ID to the db helper
 		markMinigameCompleted(challengeId)
 		// Close the minigame
-		setIsMinigameOpen(false)
+		closeChallenge()
 	}
 
 	async function submitAnswer(code) { // Sends the answer with the current challenge's ID.
-		return submitChallengeAnswer(currentTutorial.challenge.id, code)
+		return submitChallengeAnswer(activeChallenge.id, code)
 	}
 
 	return (
@@ -144,23 +204,31 @@ export default function LearningExperience({isOpen, onClose}) {
 				/>
 			)}
 
-			{allTutorialsCompleted && !replayTutorial && (
+			{allTutorialsCompleted && !replayTutorial && !isMinigameOpen && (
 				<section className="learning-panel">
-					<p role="status">
-						You have completed all available tutorials and challenges!
-					</p>
+					<LevelChallenges
+						progression={progression}
+						passedChallengeIds={passedChallengeIds}
+						onStart={startLevelChallenge}
+					/>
+					{(!progression || progression.all_completed) && (
+						<p role="status">
+							You have completed all available tutorials and challenges!
+						</p>
+					)}
 					<TutorialReplayList tutorials={completedTutorials} onReplay={setReplayTutorialId} />
 				</section>
 			)}
 
-			{currentTutorial && isMinigameOpen && (
+			{activeChallenge && isMinigameOpen && (
 				<CodingMinigame
-					challenge={currentTutorial.challenge}
-					code={challengeDrafts[currentTutorial.challenge.id] ?? currentTutorial.challenge.starterCode}
+					key={activeChallenge.id}
+					challenge={activeChallenge}
+					code={challengeDrafts[activeChallenge.id] ?? activeChallenge.starterCode}
 					onCodeChange={updateChallengeCode}
 					onSubmit={submitAnswer}
 					onPassed={completeChallenge}
-					onClose={() => setIsMinigameOpen(false)}
+					onClose={closeChallenge}
 				/>
 			)}
 		</LearningWindow>

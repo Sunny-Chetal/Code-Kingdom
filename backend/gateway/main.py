@@ -1,7 +1,9 @@
 import os
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Response
+from urllib.parse import urlencode
+
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from services.core.schemas import ChallengeSubmission, CodingQuestionCreate, CodingQuestionUpdate
 
@@ -79,6 +81,12 @@ async def forward_to_core(method: str, path: str, payload: dict | None = None):
 @app.get("/api/coding-questions")
 async def list_questions():
     return await forward_to_core("GET", "/coding-questions")
+
+
+# Declared before /api/coding-questions/{question_id} so "progression" is not read as a question ID.
+@app.get("/api/coding-questions/progression")
+async def get_progression(completed: list[str] = Query(default=[])):
+    return await forward_to_core("GET", "/coding-questions/progression?" + urlencode({"completed": completed}, doseq=True))
 
 
 @app.get("/api/coding-questions/{question_id}")

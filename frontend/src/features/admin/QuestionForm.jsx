@@ -7,6 +7,7 @@ const EMPTY_QUESTION = {
 	starter_code: '',
 	checks: '{}',
 	difficulty: 'easy',
+	tier: 1,
 }
 
 // Form for creating a question, or editing one when `question` is supplied.
@@ -42,6 +43,7 @@ export default function QuestionForm({question, rewards, onSave, onCancel}) {
 				starter_code: values.starter_code,
 				checks,
 				difficulty: values.difficulty,
+				tier: Number(values.tier),
 			})
 		} catch (saveError) {
 			setError(saveError.message)
@@ -72,14 +74,20 @@ export default function QuestionForm({question, rewards, onSave, onCancel}) {
 				<textarea className={inputClass} rows={3} value={values.description} onChange={update('description')} required/>
 			</label>
 
-			<label className="block space-y-1">
-				<span className="text-sm text-slate-300">Difficulty</span>
-				<select className={inputClass} value={values.difficulty} onChange={update('difficulty')}>
-					{Object.entries(rewards).map(([level, gold]) => (
-						<option key={level} value={level}>{level} ({gold} gold)</option>
-					))}
-				</select>
-			</label>
+			<div className="grid gap-4 sm:grid-cols-2">
+				<label className="block space-y-1">
+					<span className="text-sm text-slate-300">Difficulty</span>
+					<select className={inputClass} value={values.difficulty} onChange={update('difficulty')}>
+						{Object.entries(rewards).map(([level, gold]) => (
+							<option key={level} value={level}>{level} ({gold} gold)</option>
+						))}
+					</select>
+				</label>
+				<label className="block space-y-1">
+					<span className="text-sm text-slate-300">Progression tier (1 = first)</span>
+					<input className={inputClass} type="number" min={1} max={100} step={1} value={values.tier} onChange={update('tier')} required/>
+				</label>
+			</div>
 
 			<label className="block space-y-1">
 				<span className="text-sm text-slate-300">Starter code</span>
