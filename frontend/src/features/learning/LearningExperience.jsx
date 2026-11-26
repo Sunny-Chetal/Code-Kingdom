@@ -3,7 +3,10 @@ import Tutorial, {TutorialReplayList} from './Tutorial' // Imports the logic for
 import tutorials from './data/tutorial' // Tutorials in progression order.import Button from './components/Button'
 import CodingMinigame from './CodingMinigame'
 import LearningWindow from './LearningWindow'
-import {getTutorialProgress, markTutorialCompleted, submitChallengeAnswer} from '../../services/api'
+import {
+	getMinigameProgress, getTutorialProgress, markMinigameCompleted,
+	markTutorialCompleted, submitChallengeAnswer
+} from '../../services/api'
 
 export default function LearningExperience({isOpen, onClose}) {
 	// Tracks whether the minigame panel is visible.
@@ -30,6 +33,19 @@ export default function LearningExperience({isOpen, onClose}) {
 			.catch(error => {
 				if (isMounted) {
 					setProgressError('Tutorial progress could not be loaded: ' + error.message)
+				}
+			})
+		getMinigameProgress()
+			.then(progress => {
+				if (isMounted) {
+					setPassedChallengeIds(previousIds =>
+						[...new Set([...previousIds, ...progress.completed_minigame_ids])]
+					)
+				}
+			})
+			.catch(error => {
+				if (isMounted) {
+					setProgressError('Minigame progress could not be loaded: ' + error.message)
 				}
 			})
 		return () => {
@@ -82,10 +98,12 @@ export default function LearningExperience({isOpen, onClose}) {
 			if (previousIds.includes(challengeId)) {
 				return previousIds
 			}
-
 			return [...previousIds, challengeId]
 		})
 
+		// Send the current challenge ID to the db helper
+		markMinigameCompleted(challengeId)
+		// Close the minigame
 		setIsMinigameOpen(false)
 	}
 

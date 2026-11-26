@@ -29,6 +29,9 @@ resend.api_key = os.getenv("RESEND_API_KEY")
 class TutorialCompletionRequest(BaseModel):
     tutorial_id: str = Field(min_length=1, max_length=40)
 
+class MinigameCompletionRequest(BaseModel):
+    minigame_id: str = Field(min_length=1, max_length=40)
+
 class KingdomResources(BaseModel):
     gold: int = Field(strict=True, ge=0)
     gems: int = Field(strict=True, ge=0)
@@ -306,6 +309,7 @@ def get_kingdom_state(request: Request):
     except Exception as e:
         request.session.clear()
         raise HTTPException(status_code=401, detail="Kingdom unable to retrieve state.")
+    return state
 
 
 @app.get("/api/tutorial-progress")
@@ -319,6 +323,18 @@ def save_tutorial_progress(request: Request, completion: TutorialCompletionReque
     username = require_signed_in_username(request)
     completed_ids = db.mark_tutorial_completed(username, completion.tutorial_id)
     return {"completed_tutorial_ids": completed_ids}
+
+@app.get("/api/minigame-progress")
+def get_minigame_progress(request: Request):
+    username = require_signed_in_username(request)
+    return {"completed_minigame_ids": db.get_completed_minigame_ids(username)}
+
+
+@app.put("/api/minigame-progress")
+def save_minigame_progress(request: Request, completion: MinigameCompletionRequest):
+    username = require_signed_in_username(request)
+    completed_ids = db.mark_minigame_completed(username, completion.minigame_id)
+    return {"completed_minigame_ids": completed_ids}
 
 
 @app.get("/reset-password", response_class=HTMLResponse)
