@@ -1,9 +1,9 @@
 import PhaserGame from '../features/kingdom/PhaserGame'
 import DebugOverlay from '../features/debug/DebugOverlay'
 import KingdomInteractions from '../features/kingdom/KingdomInteractions'
-import {useState} from "react";
-import {useEffect} from "react";
-import {getKingdomState} from "../services/api.js";
+import {useEffect, useRef, useState} from 'react'
+import {getKingdomState, saveKingdomState} from '../services/api.js'
+const TIMER_DURATION_SECONDS = 60 * 10
 
 export default function KingdomDashboard() {
 	//Store the loaded resources and building names, plus loading and error states
@@ -99,10 +99,54 @@ export default function KingdomDashboard() {
 	}
 
 	return (
-		<main className="h-dvh w-full overflow-hidden">
+		<main className="relative h-dvh w-full overflow-hidden">
 			<PhaserGame />
 			<KingdomInteractions />
 			<DebugOverlay />
+			<MyTimer />
 		</main>
 	)
+}
+
+function MyTimer() {
+	const [secondsRemaining, setSecondsRemaining] = useState(TIMER_DURATION_SECONDS)
+	const [saveError, setSaveError] = useState(null)
+	const secondsRemainingRef = useRef(TIMER_DURATION_SECONDS)
+
+	useEffect(() => {
+		const intervalId = window.setInterval(() => {
+			if (secondsRemainingRef.current <= 1) {
+				secondsRemainingRef.current = TIMER_DURATION_SECONDS
+				setSecondsRemaining(TIMER_DURATION_SECONDS)
+				getKingdomState()
+					.then(latestState => saveKingdomState(latestState))
+					.then(() => setSaveError(null))
+					.catch(error => {
+						setSaveError(
+							error instanceof Error ? error.message : 'Could not save kingdom state.'
+						)
+					})
+				return
+			}
+
+			secondsRemainingRef.current -= 1
+			setSecondsRemaining(secondsRemainingRef.current)
+		}, 1000)
+
+		return () => window.clearInterval(intervalId)
+	}, [])
+
+	const minutes = Math.floor(secondsRemaining / 60)
+	const seconds = String(secondsRemaining % 60).padStart(2, '0')
+
+	// Uncomment this To be able to see the timer In game
+	/*return (
+		<div className="absolute right-4 top-4 z-50 rounded bg-slate-950/80 px-3 py-2 font-mono text-lg text-white">
+			<div role="timer" aria-live="off">
+				{minutes}:{seconds}
+			</div>
+			{saveError && <p role="alert">Save failed: {saveError}</p>}
+		</div>
+	)
+	*/
 }

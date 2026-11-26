@@ -28,7 +28,7 @@ export async function submitChallengeAnswer(challengeId, code) {
 //Kingdom State
 export async function getKingdomState(signal){
         const response = await fetch(getLoginApiBaseUrl() + '/kingdom-state', {
-            credentials: 'include', signal,})
+            credentials: 'include', signal, cache: 'no-store'})
     if (!response.ok) {
         const body = await response.json().catch(() => ({}))
         const detail = Array.isArray(body.detail)
