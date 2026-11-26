@@ -24,6 +24,23 @@ export async function submitChallengeAnswer(challengeId, code) {
     return response.json()
 }
 
+
+//Kingdom State
+export async function getKingdomState(signal){
+        const response = await fetch(getLoginApiBaseUrl() + '/kingdom-state', {
+            credentials: 'include', signal,})
+    if (!response.ok) {
+        const body = await response.json().catch(() => ({}))
+        const detail = Array.isArray(body.detail)
+            ? body.detail.map(problem => problem.loc.at(-1) + ': ' + problem.msg).join(', ')
+            : body.detail
+        const error = new Error(detail || 'HTTP ' + response.status)
+        error.status = response.status
+        throw error
+    }
+    return response.json()
+}
+
 // ---------- Tutorial completion progress ----------
 
 async function tutorialProgressRequest(options = {}) {

@@ -35,8 +35,11 @@ def init_db():
         conn.execute("""
             CREATE TABLE IF NOT EXISTS users.stats(
                 username VARCHAR(255) PRIMARY KEY,
-                health INT DEFAULT 100,
-                power INT DEFAULT 100,
+                gold INT DEFAULT 0,
+                gems INT DEFAULT 0,
+                wood INT DEFAULT 0,
+                buildings VARCHAR(40)[] DEFAULT '{}',
+                minigames VARCHAR(40)[] DEFAULT '{}',
                 tutorials VARCHAR(40)[] NOT NULL DEFAULT '{}',
                 FOREIGN KEY (username) REFERENCES users.login(username)
             );
@@ -126,4 +129,33 @@ def update_user_password(username: str, new_password: str) -> bool:
         print(f"Error updating password for {username}: {e}")
         return False
 
-    
+def get_kingdom_state(username: str) -> dict[str, dict[str, int] | list[str]]:
+    with psycopg.connect(DB_URI, row_factory=dict_row) as conn:
+        #Get correct user from the table and check if they exist using username
+        user = conn.execute(
+            "SELECT username FROM users.login WHERE username = %s",
+            (username,)
+        ).fetchone()
+        if not user:
+            raise LookupError(f"User {username} not found")
+
+        #Either create the user's stats if they have none or do nothing in the Stats table
+        conn.execute(
+            "INSERT INTO users.stats (username) VALUES (%s) ON CONFLICT DO NOTHING",
+            (username,)
+        )
+
+        #Get resources and saved building identifiers from the same stats row
+        state = conn.execute(
+            "SELECT gold, gems, wood, COALESCE(buildings, ARRAY[]::VARCHAR(40)[]) AS buildings "
+            "FROM users.stats WHERE username = %s",
+            (username,)
+        ).fetchone()
+
+        if state is None:
+            raise RuntimeError(f"Kingdom state for user {username} not found")
+
+        return {
+            "resources": {"gold": state["gold"], "gems": state["gems"], "wood": state["wood"]},
+            "buildings": state["buildings"],
+        }

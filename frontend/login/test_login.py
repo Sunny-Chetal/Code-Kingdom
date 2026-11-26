@@ -88,8 +88,10 @@ def test_db_user_stats_initialized():
         ).fetchone()
 
     assert stats is not None
-    assert stats["health"] == 100
-    assert stats["power"] == 100
+    assert stats["gold"] == 0
+    assert stats["gems"] == 0
+    assert stats["wood"] == 0
+    assert stats["buildings"] == []
 
 
 # =========================================================

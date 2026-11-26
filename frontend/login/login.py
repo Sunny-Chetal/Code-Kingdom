@@ -29,6 +29,15 @@ resend.api_key = os.getenv("RESEND_API_KEY")
 class TutorialCompletionRequest(BaseModel):
     tutorial_id: str = Field(min_length=1, max_length=40)
 
+class KingdomResources(BaseModel):
+    gold: int = Field(strict=True, ge=0)
+    gems: int = Field(strict=True, ge=0)
+    wood: int = Field(strict=True, ge=0)
+
+class KingdomStateResponse(BaseModel):
+    resources: KingdomResources
+    buildings: list[str]
+
 
 app = FastAPI()
 app.add_middleware(
@@ -284,11 +293,19 @@ async def logout(request: Request):
 # --- Password Reset Flow ---
 
 def require_signed_in_username(request: Request) -> str:
-    # Tutorial progress belongs to the account stored in the signed session cookie.
     username = request.session.get("username")
     if not username:
-        raise HTTPException(status_code=401, detail="Sign in to save tutorial progress.")
+        raise HTTPException(status_code=401, detail="Sign in to save progress.")
     return username
+
+@app.get("/api/kingdom-state", response_model=KingdomStateResponse)
+def get_kingdom_state(request: Request):
+    username = require_signed_in_username(request)
+    try:
+        state = db.get_kingdom_state(username)
+    except Exception as e:
+        request.session.clear()
+        raise HTTPException(status_code=401, detail="Kingdom unable to retrieve state.")
 
 
 @app.get("/api/tutorial-progress")
