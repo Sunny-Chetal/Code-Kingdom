@@ -1,3 +1,4 @@
+import json
 import uuid
 import pytest
 import psycopg
@@ -8,6 +9,10 @@ import db
 from login import app, validate_password
 
 client = TestClient(app)
+
+# Edit these values before running this file directly.
+PLAYER_USERNAME = "TAGZ"
+GOLD_TO_ADD = 35
 
 # =========================================================
 # 1. Unit Tests: Password & Input Validation Logic
@@ -161,3 +166,42 @@ def test_full_login_and_logout_flow():
     logout_res = client.get("/logout", cookies=login_res.cookies, follow_redirects=False)
     assert logout_res.status_code == 303
     assert logout_res.headers["location"] == "/login"
+
+# CAIO TEST ADDING GOLD ONLY 
+
+def add_gold_only():
+    if type(GOLD_TO_ADD) is not int or GOLD_TO_ADD < 0:
+        raise ValueError("Gold to add must be a non-negative integer")
+
+    before = db.get_kingdom_state(PLAYER_USERNAME)
+    new_gold = before["resources"]["gold"] + GOLD_TO_ADD
+    if new_gold > 2147483647:
+        raise ValueError("Gold total is out of range")
+
+    saved = db.save_kingdom_state(
+        PLAYER_USERNAME,
+        new_gold,
+        before["resources"]["gems"],
+        before["resources"]["wood"],
+        before["buildings"],
+    )
+    verified = db.get_kingdom_state(PLAYER_USERNAME)
+
+    if verified != saved:
+        raise RuntimeError("Kingdom state read-back did not match the saved values")
+    if verified["resources"]["gold"] != new_gold:
+        raise RuntimeError("Gold read-back did not match the requested value")
+
+    return verified
+
+
+
+def main():
+    print(json.dumps(
+        {"username": PLAYER_USERNAME, **add_gold_only()},
+        indent=2,
+    ))
+
+
+if __name__ == "__main__":
+    main()
