@@ -41,6 +41,27 @@ export async function getKingdomState(signal){
     return response.json()
 }
 
+//Save the user's current resources and buildings
+export async function saveKingdomState(state, signal){
+    const response = await fetch(getLoginApiBaseUrl() + '/kingdom-state', {
+        method: 'PUT',
+        credentials: 'include',
+        signal,
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({resources: state.resources, buildings: state.buildings}),
+    })
+    if (!response.ok) {
+        const body = await response.json().catch(() => ({}))
+        const detail = Array.isArray(body.detail)
+            ? body.detail.map(problem => problem.loc.at(-1) + ': ' + problem.msg).join(', ')
+            : body.detail
+        const error = new Error(detail || 'HTTP ' + response.status)
+        error.status = response.status
+        throw error
+    }
+    return response.json()
+}
+
 // ---------- Tutorial completion progress ----------
 
 async function tutorialProgressRequest(options = {}) {
