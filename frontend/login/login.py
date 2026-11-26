@@ -41,6 +41,10 @@ class KingdomStateResponse(BaseModel):
     resources: KingdomResources
     buildings: list[str]
 
+class KingdomStateSaveRequest(BaseModel):
+    resources: KingdomResources
+    buildings: list[str]
+
 
 app = FastAPI()
 app.add_middleware(
@@ -306,11 +310,29 @@ def get_kingdom_state(request: Request):
     username = require_signed_in_username(request)
     try:
         state = db.get_kingdom_state(username)
-    except Exception as e:
+    except LookupError:
         request.session.clear()
-        raise HTTPException(status_code=401, detail="Kingdom unable to retrieve state.")
+        raise HTTPException(status_code=401, detail="Unable to load kingdom. Please sign in again.")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Unable to load kingdom. Please try again.")
+
     return state
 
+@app.put("/api/kingdom-state", response_model=KingdomStateResponse)
+def save_kingdom_state(request: Request, state: KingdomStateSaveRequest):
+    username =  require_signed_in_username(request)
+
+    try:
+        saved_state = db.save_kingdom_state(username, state.resources.gold, state.resources.gems, state.resources.wood, state.buildings)
+    except LookupError:
+        request.session.clear()
+        raise HTTPException(status_code=401, detail="Unable to save kingdom. Please sign in again.")
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Unable to save kingdom. Invalid progress data.")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Unable to save kingdom. Please try again.")
+
+    return saved_state
 
 @app.get("/api/tutorial-progress")
 def get_tutorial_progress(request: Request):

@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from sqlalchemy.engine import make_url
 from psycopg.rows import dict_row
 from pwdlib import PasswordHash
+from kingdom_catalog import validate_building
 
 # Uses 127.0.0.1 (avoids IPv6 timeout) and matches the project's Docker credentials
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -197,3 +198,51 @@ def get_kingdom_state(username: str) -> dict[str, dict[str, int] | list[str]]:
             "resources": {"gold": state["gold"], "gems": state["gems"], "wood": state["wood"]},
             "buildings": state["buildings"],
         }
+
+def save_kingdom_state(username: str, gold: int, gems: int, wood: int, buildings: list[str]) -> dict[str, dict[str, int] | list[str]]:
+    if not (type(gold) is int and type(gems) is int and type(wood) is int):
+        raise ValueError("Kingdom Resources Are Invalid Types")
+
+    if not (0 <= gold <= 2147483647):
+        raise ValueError("Gold Is Out Of Range")
+
+    if not (0 <= gems <= 2147483647):
+        raise ValueError("Gems Is Out Of Range")
+
+    if not (0 <= wood <= 2147483647):
+        raise ValueError("Wood Is Out Of Range")
+
+    building_validity = validate_building(buildings)
+
+    if building_validity is False:
+        raise ValueError("Only One Building Of Each Type Can Be Saved")
+
+    with psycopg.connect(DB_URI, row_factory=dict_row) as conn:
+        user = conn.execute(
+            "SELECT username FROM users.login WHERE username = %s",
+            (username,)
+        ).fetchone()
+        if not user:
+            raise LookupError(f"User {username} not found")
+
+        conn.execute(
+            "INSERT INTO users.stats (username) VALUES (%s) ON CONFLICT DO NOTHING",
+            (username,)
+        )
+
+        #Save resources and current buildings together, leaving other progress unchanged
+        state = conn.execute(
+            "UPDATE users.stats SET gold = %s, gems = %s, wood = %s, buildings = %s "
+            "WHERE username = %s RETURNING gold, gems, wood, buildings",
+            (gold, gems, wood, buildings, username)
+        ).fetchone()
+
+        if state is None:
+            raise RuntimeError(f"Kingdom state for user {username} could not be saved")
+
+        result = {
+            "resources": {"gold": state["gold"], "gems": state["gems"], "wood": state["wood"]},
+            "buildings": state["buildings"],
+        }
+
+    return result
