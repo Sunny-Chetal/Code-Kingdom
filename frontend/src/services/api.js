@@ -91,6 +91,35 @@ export function markTutorialCompleted(tutorialId) {
     })
 }
 
+// ---------- Minigame completion progres ----------
+
+async function minigameProgressRequest(options = {}){
+	const response = await fetch(getLoginApiBaseUrl() + '/minigame-progress', {
+        credentials: 'include',
+        ...options,
+    })
+	if (!response.ok) {
+        const body = await response.json().catch(() => ({}))
+        const detail = Array.isArray(body.detail)
+            ? body.detail.map(problem => problem.loc.at(-1) + ': ' + problem.msg).join(', ')
+            : body.detail
+        throw new Error(detail || 'HTTP ' + response.status)
+    }
+    return response.json()
+}
+
+export function getMinigameProgress() {
+    return minigameProgressRequest()
+}
+
+export function markMinigameCompleted(minigameId) {
+    return minigameProgressRequest({
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({minigame_id: minigameId}),
+    })
+}
+
 // ---------- Coding questions (administrator question management) ----------
 
 async function questionRequest(path, options = {}) { // Sends a request and turns API errors into readable messages.

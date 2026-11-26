@@ -45,11 +45,23 @@ def init_db():
                 FOREIGN KEY (username) REFERENCES users.login(username)
             );
         """)
-        # Adds replay progress to databases created before tutorial completion was persisted.
+        # Adds replay progress to databases created before tutorial completion and minigame completion was added.
         conn.execute("""
             ALTER TABLE users.stats
                 ADD COLUMN IF NOT EXISTS tutorials VARCHAR(40)[] NOT NULL DEFAULT '{}';
         """)
+
+        conn.execute("""
+                    ALTER TABLE users.stats
+                        ADD COLUMN IF NOT EXISTS minigames VARCHAR(40)[] NOT NULL DEFAULT '{}';
+                """)
+        conn.execute("""
+                    ALTER TABLE users.stats
+                        ADD COLUMN IF NOT EXISTS gold INTEGER NOT NULL DEFAULT 0,
+                        ADD COLUMN IF NOT EXISTS gems INTEGER NOT NULL DEFAULT 0,
+                        ADD COLUMN IF NOT EXISTS wood INTEGER NOT NULL DEFAULT 0,
+                        ADD COLUMN IF NOT EXISTS buildings VARCHAR(40)[] NOT NULL DEFAULT '{}';
+                    """)
 
 def get_user_by_username(username: str):
     with psycopg.connect(DB_URI, row_factory=dict_row) as conn:
@@ -81,6 +93,32 @@ def get_completed_tutorial_ids(username: str) -> list[str]:
         row = conn.execute(
             "SELECT COALESCE(tutorials, ARRAY[]::VARCHAR(40)[]) FROM users.stats WHERE username = %s",
             (username,)
+        ).fetchone()
+        return row[0] if row else []
+
+def get_completed_minigame_ids(username: str) -> list[str]:
+    with psycopg.connect(DB_URI) as conn:
+        row = conn.execute(
+            "SELECT COALESCE(minigames, ARRAY[]::VARCHAR(40)[]) FROM users.stats WHERE username = %s",
+            (username,)
+        ).fetchone()
+        return row[0] if row else []
+
+def mark_minigame_completed(username: str, minigame_id: str) -> list[str]:
+    with psycopg.connect(DB_URI) as conn:
+        row = conn.execute(
+            """
+            INSERT INTO users.stats AS existing_stats (username, minigames) 
+            VALUES (%s, ARRAY[%s]::VARCHAR(40)[])
+            ON CONFLICT (username) DO UPDATE
+            SET minigames = CASE
+                WHEN EXCLUDED.minigames[1] = ANY(COALESCE(existing_stats.minigames, ARRAY[]::VARCHAR(40)[]))
+                    THEN COALESCE(existing_stats.minigames, ARRAY[]::VARCHAR(40)[])
+                ELSE array_append(COALESCE(existing_stats.minigames, ARRAY[]::VARCHAR(40)[]), EXCLUDED.minigames[1])
+            END
+            RETURNING COALESCE(minigames, ARRAY[]::VARCHAR(40)[])
+            """,
+            (username, minigame_id)
         ).fetchone()
         return row[0] if row else []
 
