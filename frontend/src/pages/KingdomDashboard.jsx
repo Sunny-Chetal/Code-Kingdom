@@ -100,7 +100,7 @@ export default function KingdomDashboard() {
 
 	return (
 		<main className="h-dvh w-full overflow-hidden">
-			<PhaserGame />
+			<PhaserGame savedKingdom={kingdomState} />
 			<KingdomInteractions />
 			<DebugOverlay />
 		</main>
