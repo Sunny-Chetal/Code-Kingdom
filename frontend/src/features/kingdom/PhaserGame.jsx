@@ -1,14 +1,30 @@
 import {useEffect, useRef} from 'react'
 import Phaser from 'phaser'
 import {gameConfig} from './gameConfig'
+import {toKingdomSceneState} from './savedKingdom'
 
-export default function PhaserGame() {
+export default function PhaserGame({savedKingdom}) {
 	const container = useRef(null)
+	//Keep the loaded state for this game session
+	const initialKingdom = useRef(savedKingdom)
 
 	useEffect(() => {
+		const loadedKingdom = initialKingdom.current;
+		const sceneState = toKingdomSceneState(loadedKingdom);
+
 		const game = new Phaser.Game({
 			...gameConfig,
-			parent: container.current
+			parent: container.current,
+			callbacks: {
+				//Set saved progress before the scene starts
+				preBoot(game) {
+					game.registry.set('kingdomState', sceneState);
+
+					if (loadedKingdom) {
+						game.registry.set('kingdomResources', loadedKingdom.resources);
+					}
+				}
+			}
 		})
 
 		function syncKeyboardFocus() {
