@@ -1,5 +1,27 @@
 import Phaser from 'phaser'
 
+//Keep collision boxes inside the visible building art
+const BUILDING_COLLISIONS = {
+    'library I': {x: 3, y: 48, width: 234, height: 144},
+    'library IIa': {x: 0, y: 0, width: 240, height: 192},
+    'library IIb': {x: 0, y: 15, width: 240, height: 177},
+    'castle I': {x: 3, y: 90, width: 378, height: 246},
+    'castle IIa': {x: 0, y: 3, width: 384, height: 333},
+    'castle IIb': {x: 0, y: 3, width: 384, height: 333},
+    'workshop I': {x: 3, y: 0, width: 186, height: 144},
+    'workshop IIa': {x: 3, y: 0, width: 186, height: 144},
+    'workshop IIb': {x: 3, y: 0, width: 186, height: 144},
+    'farm I': {x: 3, y: 69, width: 330, height: 171},
+    'farm IIa': {x: 3, y: 45, width: 330, height: 195},
+    'farm IIb': {x: 3, y: 45, width: 330, height: 195},
+    'tower I': {x: 3, y: 36, width: 138, height: 252},
+    'tower IIa': {x: 3, y: 0, width: 138, height: 288},
+    'tower IIb': {x: 3, y: 0, width: 138, height: 288},
+    'market I': {x: 3, y: 60, width: 234, height: 132},
+    'market IIa': {x: 3, y: 19, width: 237, height: 173},
+    'market IIb': {x: 3, y: 3, width: 237, height: 189},
+};
+
 export default class KingdomScene extends Phaser.Scene {
     constructor() {
         super({key: 'KingdomScene'})
@@ -124,27 +146,78 @@ export default class KingdomScene extends Phaser.Scene {
     }
 
     updateBuildingAppearance(change) {
-        if (!change || typeof change !== 'object') return { ok: false, error: 'Building data required' }
-        const building = this.buildings.find(item => item.getData('id') === change.id)
-        if (!building) return { ok: false, error: `Unknown building: ${change.id}` }
-        const { level, branch } = change
-        if (![0, 1, 2].includes(level) || (level === 2 && !['a', 'b'].includes(branch))) {
-            return { ok: false, error: 'Use level 0, 1, or level 2 with branch a/b' }
+        //Check the building data
+        if (!change || typeof change !== 'object') {
+            return {ok: false, error: 'Building data required'};
         }
-        const texture = level === 0 ? 'empty lot'
-            : level === 1 ? `${change.id} I` : `${change.id} II${branch}`
+
+        //Find the correct building on the map
+        const building = this.buildings.find(building => building.getData('id') === change.id);
+
+        if (!building) {
+            return {ok: false, error: `Unknown building: ${change.id}`};
+        }
+
+        const level = change.level;
+        const branch = change.branch;
+
+        //Check the building level and upgrade branch
+        if (![0, 1, 2].includes(level)) {
+            return {ok: false, error: 'Use level 0, 1, or level 2 with branch a/b'};
+        }
+
+        if (level === 2 && branch !== 'a' && branch !== 'b') {
+            return {ok: false, error: 'Use level 0, 1, or level 2 with branch a/b'};
+        }
+
+        //Choose the correct building image
+        let texture;
+
+        if (level === 0) {
+            texture = 'empty lot';
+        } else if (level === 1) {
+            texture = change.id + ' I';
+        } else {
+            texture = change.id + ' II' + branch;
+        }
+
         if (!this.textures.exists(texture)) {
-            return { ok: false, error: `Texture not loaded: ${texture}` }
+            return {ok: false, error: `Texture not loaded: ${texture}`};
         }
-        const width = building.displayWidth
-        const height = building.displayHeight
-        building.setTexture(texture)
-        building.setDisplaySize(width, height)
-        building.refreshBody()
-        building.body.enable = level > 0
-        building.setData('level', level)
-        building.setData('branch', level === 2 ? branch : null)
-        return { ok: true }
+
+        //Change the image and keep the building size
+        const width = building.displayWidth;
+        const height = building.displayHeight;
+        building.setTexture(texture);
+        building.setDisplaySize(width, height);
+
+        //Reset the previous collision box before changing its size
+        building.body.setOffset(0, 0);
+        building.refreshBody();
+
+        if (level === 0) {
+            //Allow walking through empty lots
+            building.body.enable = false;
+        } else {
+            //Scale the image bounds to the displayed building size
+            const collision = BUILDING_COLLISIONS[texture];
+            const scaleX = building.displayWidth / building.frame.realWidth;
+            const scaleY = building.displayHeight / building.frame.realHeight;
+
+            building.body.setSize(collision.width * scaleX, collision.height * scaleY, false);
+            building.body.setOffset(collision.x * scaleX, collision.y * scaleY);
+            building.body.enable = true;
+        }
+
+        //Store the displayed level and branch
+        building.setData('level', level);
+        if (level === 2) {
+            building.setData('branch', branch);
+        } else {
+            building.setData('branch', null);
+        }
+
+        return {ok: true};
     }
 
     // Supply state through scene-start data, game.registry, or the React apply-state command.
@@ -604,15 +677,3 @@ export default class KingdomScene extends Phaser.Scene {
         }
     }
 }
-
-
-
-
-/*
-updateBuildings() --Sprint 2
-handleInteractions()
-applyKingdomState()
-shutdown()
-const npcId = this.nearbyNPC.getData('id')
-const interactionType = this.nearbyNPC.getData('interactionType')
- */
